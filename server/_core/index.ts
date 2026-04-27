@@ -8,6 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { invokeLLM } from "./llm";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -36,6 +37,38 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+
+  // ── Gemini AI Tip Proxy ──
+  // Keeps the API key strictly server-side; client calls /api/gemini-tip
+  app.post("/api/gemini-tip", async (req, res) => {
+    try {
+      const { prompt } = req.body as { prompt?: string };
+      if (!prompt || typeof prompt !== "string") {
+        res.status(400).json({ error: "prompt is required" });
+        return;
+      }
+      const result = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful IELTS vocabulary coach. Give concise, encouraging tips (1-2 sentences max) about typing speed, vocabulary learning, or game strategy.",
+          },
+          { role: "user", content: prompt },
+        ],
+        maxTokens: 256,
+      });
+      const text =
+        (result.choices?.[0]?.message?.content as string) ??
+        "Keep practicing to improve your IELTS vocabulary!";
+      res.json({ text });
+    } catch (err) {
+      console.error("[GeminiProxy] Error:", err);
+      // Return a fallback tip so the game never breaks
+      res.json({ text: "Focus on accuracy first, then speed. You're doing great!" });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { GameScore, InsertGameScore, InsertUser, gameScores, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,26 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ── Game Score Queries ──
+
+export async function saveGameScore(data: InsertGameScore): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot save score: database not available");
+    return;
+  }
+  await db.insert(gameScores).values(data);
+}
+
+export async function getTopScores(limit = 10): Promise<GameScore[]> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get scores: database not available");
+    return [];
+  }
+  return db
+    .select()
+    .from(gameScores)
+    .orderBy(desc(gameScores.score))
+    .limit(limit);
+}

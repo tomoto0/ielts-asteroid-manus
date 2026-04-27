@@ -1,0 +1,202 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #0b0f13;
+    color: #cde8ff;
+    font-family: monospace;
+}
+
+canvas {
+    display: block;
+}
+
+#gameOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    z-index: 100;
+}
+
+#gameOverlay h1 {
+    font-size: 3em;
+    margin-bottom: 20px;
+}
+
+#gameOverlay p {
+    font-size: 1.2em;
+    margin-bottom: 30px;
+}
+
+#startButton {
+    padding: 15px 30px;
+    font-size: 1.5em;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#startButton:hover {
+    background-color: #0056b3;
+}
+
+#typingInput {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 101;
+}
+
+#textInput {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 2px solid #cde8ff;
+    color: #cde8ff;
+    padding: 10px;
+    font-size: 1.5em;
+    width: 300px;
+    text-align: center;
+    border-radius: 5px;
+    outline: none;
+}
+
+#currentTarget {
+    margin-top: 10px;
+    font-size: 1.2em;
+    color: #ffff00;
+}
+
+#aiPanel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 15px;
+    border-radius: 8px;
+    max-width: 300px;
+    color: #00ff00;
+    font-size: 0.9em;
+    z-index: 102;
+}
+
+#aiMessage {
+    margin-bottom: 10px;
+}
+
+#helpButton {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.controls {
+    margin-top: 20px;
+}
+
+.controls label {
+    margin-right: 10px;
+    font-size: 1.1em;
+}
+
+.controls select {
+    padding: 8px;
+    font-size: 1em;
+    border-radius: 5px;
+    border: 1px solid #cde8ff;
+    background-color: #0b0f13;
+    color: #cde8ff;
+}
+
+
+
+#aiPanel #controlsInfo {
+    font-size: 0.8em;
+    color: #cde8ff;
+    margin-top: 10px;
+    text-align: right;
+}
+
+#audioControls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 102;
+}
+
+#soundToggle, #bgmToggle {
+    background-color: #007bff;
+    color: white;
+    border: 2px solid #00ff00;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-family: monospace;
+    transition: all 0.3s ease;
+}
+
+#soundToggle:hover, #bgmToggle:hover {
+    background-color: #0056b3;
+    transform: scale(1.05);
+}
+
+#soundToggle.off, #bgmToggle.off {
+    background-color: #6c757d;
+    border-color: #ff6b6b;
+}
+
+#soundToggle.off:hover, #bgmToggle.off:hover {
+    background-color: #5a6268;
+}
+
+#gameControls {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 15px;
+    z-index: 103;
+}
+
+#pauseButton, #menuButton {
+    background-color: #ff6b6b;
+    color: white;
+    border: 2px solid #ff4444;
+    padding: 12px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    font-family: monospace;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+#pauseButton:hover, #menuButton:hover {
+    background-color: #ff5252;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(255, 100, 100, 0.5);
+}
+
+#pauseButton:active, #menuButton:active {
+    transform: scale(0.95);
+}

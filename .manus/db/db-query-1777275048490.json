@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `gameScores` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`playerName` varchar(64) NOT NULL,\n\t`score` int NOT NULL,\n\t`wordsDestroyed` int NOT NULL DEFAULT 0,\n\t`language` varchar(8) NOT NULL DEFAULT 'ja',\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `gameScores_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user uNghJRV6HrXdbvr.ee9e92b8e56b --database 9DnwzxsHiWb7cWTxwRXotk --execute CREATE TABLE `gameScores` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`playerName` varchar(64) NOT NULL,\n\t`score` int NOT NULL,\n\t`wordsDestroyed` int NOT NULL DEFAULT 0,\n\t`language` varchar(8) NOT NULL DEFAULT 'ja',\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `gameScores_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 235
+}

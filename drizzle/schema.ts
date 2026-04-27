@@ -25,4 +25,15 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+// Game scores table for leaderboard
+export const gameScores = mysqlTable("gameScores", {
+  id: int("id").autoincrement().primaryKey(),
+  playerName: varchar("playerName", { length: 64 }).notNull(),
+  score: int("score").notNull(),
+  wordsDestroyed: int("wordsDestroyed").notNull().default(0),
+  language: varchar("language", { length: 8 }).notNull().default("ja"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type GameScore = typeof gameScores.$inferSelect;
+export type InsertGameScore = typeof gameScores.$inferInsert;
