@@ -58,7 +58,7 @@ let wordsDestroyedCount = 0;
 // Each destroyed asteroid recovers HP_RECOVER (capped at HP_MAX).
 // Game over when HP reaches 0.
 const HP_MAX = 100;
-const HP_DAMAGE = 25;   // lost per missed asteroid
+const HP_DAMAGE = 10;   // lost per missed asteroid
 const HP_RECOVER = 15;  // gained per destroyed asteroid
 let playerHP = HP_MAX;
 
