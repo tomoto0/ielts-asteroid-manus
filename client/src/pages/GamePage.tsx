@@ -7,7 +7,7 @@
  *
  * IMPORTANT: The static game shell (canvas, input, buttons) is isolated in a
  * separate memoized component (GameShell) that NEVER re-renders after mount.
- * This prevents React re-renders from resetting textInput.value during gameplay.
+ * This prevents React re-renders from disturbing the vanilla JS game HUD during gameplay.
  *
  * A leaderboard overlay is added alongside the game without touching any game logic.
  */
@@ -26,7 +26,7 @@ const RANK_ICONS = ["🥇", "🥈", "🥉"];
 /**
  * GameShell - static DOM structure for the vanilla JS game.
  * Wrapped in React.memo with no props so it NEVER re-renders after initial mount.
- * This guarantees that textInput.value set by script.js is never wiped by React.
+ * This guarantees that the display-only typing HUD managed by script.js is never wiped by React.
  */
 const GameShell = memo(function GameShell({ onLeaderboardClick }: { onLeaderboardClick: () => void }) {
   return (
@@ -66,7 +66,7 @@ const GameShell = memo(function GameShell({ onLeaderboardClick }: { onLeaderboar
 
       {/* ── Typing Input ── */}
       <div id="typingInput">
-        <input type="text" id="textInput" autoComplete="off" spellCheck={false} />
+        <div id="textInput" aria-live="polite" />
         <div id="currentTarget">Target: None</div>
       </div>
 
@@ -135,7 +135,7 @@ export default function GamePage() {
       className="w-full h-screen"
       style={{ margin: 0, padding: 0, overflow: "hidden", backgroundColor: "#050a14", position: "relative" }}
     >
-      {/* GameShell is memoized and never re-renders — textInput.value is safe from React */}
+      {/* GameShell is memoized and never re-renders — the typing HUD is safe from React */}
       <GameShell onLeaderboardClick={handleLeaderboardClick} />
 
       {/* ── Leaderboard Overlay ── */}
