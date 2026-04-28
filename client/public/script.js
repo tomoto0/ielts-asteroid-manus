@@ -56,7 +56,7 @@ let wordsDestroyedCount = 0;
 
 // ── Survival HP Gauge ─────────────────────────────────────────
 const HP_MAX = 100;
-const HP_DAMAGE = 15;   // lost per missed asteroid
+const HP_DAMAGE = 18;   // lost per missed asteroid
 const HP_RECOVER = 15;  // gained per destroyed asteroid
 let playerHP = HP_MAX;
 
