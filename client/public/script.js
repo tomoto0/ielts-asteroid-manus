@@ -454,8 +454,8 @@ function completeCurrentTypingTarget() {
     score += pointsEarned;
     wordsDestroyedCount++;
     playSound(1200, 0.2);
-    // Recover HP on successful destroy (capped at HP_MAX)
-    playerHP = Math.min(HP_MAX, playerHP + HP_RECOVER);
+    // Recover HP on successful destroy — same value as points earned so gauge matches popup
+    playerHP = Math.min(HP_MAX, playerHP + pointsEarned);
     const ex = completedTarget.x + completedTarget.size / 2;
     const ey = completedTarget.y + completedTarget.size / 2;
     spawnExplosion(ex, ey, completedTarget.colorScheme.glow);
