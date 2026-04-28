@@ -5,9 +5,13 @@
  * All DOM IDs must remain unchanged so the global scripts (script.js, gemini.js, ielts_words.js)
  * can locate their elements exactly as they expect.
  *
+ * IMPORTANT: The static game shell (canvas, input, buttons) is isolated in a
+ * separate memoized component (GameShell) that NEVER re-renders after mount.
+ * This prevents React re-renders from resetting textInput.value during gameplay.
+ *
  * A leaderboard overlay is added alongside the game without touching any game logic.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import type { GameScore } from "../../../drizzle/schema";
 
@@ -19,31 +23,14 @@ const LANG_FLAGS: Record<string, string> = {
 
 const RANK_ICONS = ["🥇", "🥈", "🥉"];
 
-export default function GamePage() {
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-
-  const { data: leaderboardData, refetch: refetchLeaderboard, isLoading } =
-    trpc.scores.leaderboard.useQuery(undefined, {
-      enabled: showLeaderboard,
-      staleTime: 10_000,
-    });
-
-  // Expose a global so script.js can trigger a leaderboard refresh after saving a score
-  useEffect(() => {
-    (window as any).__refreshLeaderboard = () => {
-      setShowLeaderboard(true);
-      refetchLeaderboard();
-    };
-    return () => {
-      delete (window as any).__refreshLeaderboard;
-    };
-  }, [refetchLeaderboard]);
-
+/**
+ * GameShell - static DOM structure for the vanilla JS game.
+ * Wrapped in React.memo with no props so it NEVER re-renders after initial mount.
+ * This guarantees that textInput.value set by script.js is never wiped by React.
+ */
+const GameShell = memo(function GameShell({ onLeaderboardClick }: { onLeaderboardClick: () => void }) {
   return (
-    <div
-      className="w-full h-screen"
-      style={{ margin: 0, padding: 0, overflow: "hidden", backgroundColor: "#050a14", position: "relative" }}
-    >
+    <>
       {/* ── Game Canvas ── */}
       <canvas id="gameCanvas" style={{ display: "block", position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} />
 
@@ -71,10 +58,7 @@ export default function GamePage() {
         {/* Leaderboard toggle button inside the overlay */}
         <button
           id="leaderboardButton"
-          onClick={() => {
-            setShowLeaderboard((v) => !v);
-            if (!showLeaderboard) refetchLeaderboard();
-          }}
+          onClick={onLeaderboardClick}
         >
           🏆 Leaderboard
         </button>
@@ -112,6 +96,47 @@ export default function GamePage() {
           🎵 BGM: ON
         </button>
       </div>
+    </>
+  );
+});
+
+export default function GamePage() {
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+  const { data: leaderboardData, refetch: refetchLeaderboard, isLoading } =
+    trpc.scores.leaderboard.useQuery(undefined, {
+      enabled: showLeaderboard,
+      staleTime: 10_000,
+      // Disable automatic background refetching to prevent re-renders during gameplay
+      refetchOnWindowFocus: false,
+      refetchInterval: false,
+    });
+
+  // Expose a global so script.js can trigger a leaderboard refresh after saving a score
+  useEffect(() => {
+    (window as any).__refreshLeaderboard = () => {
+      setShowLeaderboard(true);
+      refetchLeaderboard();
+    };
+    return () => {
+      delete (window as any).__refreshLeaderboard;
+    };
+  }, [refetchLeaderboard]);
+
+  const handleLeaderboardClick = useCallback(() => {
+    setShowLeaderboard((v) => {
+      if (!v) refetchLeaderboard();
+      return !v;
+    });
+  }, [refetchLeaderboard]);
+
+  return (
+    <div
+      className="w-full h-screen"
+      style={{ margin: 0, padding: 0, overflow: "hidden", backgroundColor: "#050a14", position: "relative" }}
+    >
+      {/* GameShell is memoized and never re-renders — textInput.value is safe from React */}
+      <GameShell onLeaderboardClick={handleLeaderboardClick} />
 
       {/* ── Leaderboard Overlay ── */}
       {showLeaderboard && (
