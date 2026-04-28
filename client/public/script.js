@@ -355,6 +355,8 @@ function syncTypingUi() {
 
 // Track the last word spoken so we don't repeat on every syncTypingState call
 let lastSpokenWord = '';
+// Flag: true while a translation utterance is in progress — blocks speakEnglish from interrupting
+let translationSpeaking = false;
 
 function syncTypingState() {
     // If current target was removed (destroyed / fell off), clear it
@@ -577,6 +579,8 @@ function drawTargetingLaser() {
 function speakEnglish(word) {
     if (!soundEnabled) return;
     if (!('speechSynthesis' in window)) return;
+    // Do not interrupt an ongoing translation utterance
+    if (translationSpeaking) return;
     try {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(word);
@@ -608,16 +612,22 @@ async function speakTranslation(word, lang) {
         const ttsLang = ttsLanguageCodes[lang] || 'ja-JP';
         setTimeout(() => {
             try {
+                // Cancel any ongoing English readout before speaking translation
+                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(translation);
                 utterance.lang = ttsLang;
                 utterance.rate = 0.85;
                 utterance.pitch = 1.0;
                 utterance.volume = 0.9;
+                translationSpeaking = true;
+                utterance.onend = () => { translationSpeaking = false; };
+                utterance.onerror = () => { translationSpeaking = false; };
                 window.speechSynthesis.speak(utterance);
             } catch (e) {
+                translationSpeaking = false;
                 console.warn('[TTS] speakTranslation utterance error:', e);
             }
-        }, 600);
+        }, 400);
     } catch (e) {
         console.warn('[TTS] speakTranslation fetch error:', e);
     }
