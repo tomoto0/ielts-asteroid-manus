@@ -268,7 +268,7 @@ canvas {
 /* ── AI Panel ── */
 #aiPanel {
   position: absolute;
-  top: 20px;
+  top: 60px;
   right: 20px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);

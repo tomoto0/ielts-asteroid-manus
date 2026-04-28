@@ -56,7 +56,7 @@ let wordsDestroyedCount = 0;
 
 // ── Survival HP Gauge ─────────────────────────────────────────
 const HP_MAX = 100;
-const HP_DAMAGE = 10;   // lost per missed asteroid
+const HP_DAMAGE = 15;   // lost per missed asteroid
 const HP_RECOVER = 15;  // gained per destroyed asteroid
 let playerHP = HP_MAX;
 
@@ -660,7 +660,7 @@ function initBGM() {
     if (bgmAudio) return; // already created
     bgmAudio = new Audio('/manus-storage/jupiter_2ce0daed.mp3');
     bgmAudio.loop = true;
-    bgmAudio.volume = 0.35;
+    bgmAudio.volume = 0.18;
     bgmAudio.preload = 'auto';
 }
 
