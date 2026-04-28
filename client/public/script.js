@@ -1121,6 +1121,10 @@ function initializeGame() {
         });
     }
 
+    const helpButton = document.getElementById('helpButton');
+    if (helpButton) {
+        helpButton.addEventListener('click', getHelpTip);
+    }
     if (bgmToggle) {
         bgmToggle.addEventListener('click', () => {
             bgmEnabled = !bgmEnabled;
@@ -1181,5 +1185,27 @@ if (document.readyState === 'loading') {
 
 function getHelpTip() {
     const aiMessage = document.getElementById('aiMessage');
+    if (!aiMessage) return;
+    // Debounce: don't spam the endpoint
+    if (aiMessage.dataset.loading === 'true') return;
+    aiMessage.dataset.loading = 'true';
     aiMessage.textContent = 'Getting advice...';
+    const prompt = gameRunning
+        ? `Score: ${score}, Words destroyed: ${wordsDestroyedCount}, HP: ${playerHP}%. Give a short IELTS typing game tip.`
+        : 'Give a short motivational tip for IELTS vocabulary practice.';
+    fetch('/api/gemini-tip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+    })
+        .then(r => r.json())
+        .then(data => {
+            aiMessage.textContent = data.text || 'Keep practicing!';
+        })
+        .catch(() => {
+            aiMessage.textContent = 'Focus on accuracy first, then speed!';
+        })
+        .finally(() => {
+            aiMessage.dataset.loading = 'false';
+        });
 }
