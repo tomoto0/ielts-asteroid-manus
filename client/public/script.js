@@ -587,6 +587,20 @@ function startGame() {
         if (textInput) textInput.focus();
     }, 100);
 
+    // Keep textInput focused during gameplay so typing always works.
+    // Refocus the input when focus moves to non-interactive elements (canvas, body).
+    // We do NOT steal focus from buttons so PAUSE/MENU/SOUND still work.
+    if (textInput) {
+        textInput.addEventListener('blur', (e) => {
+            if (!gameRunning || gamePaused) return;
+            const focusTarget = e.relatedTarget;
+            // Allow focus to move to buttons and selects
+            if (focusTarget && (focusTarget.tagName === 'BUTTON' || focusTarget.tagName === 'SELECT' || focusTarget.tagName === 'A')) return;
+            // Refocus input for all other cases (canvas click, body click, etc.)
+            setTimeout(() => textInput.focus(), 50);
+        }, { once: false });
+    }
+
     if (bgmEnabled) startBGM();
 
     for (let i = 0; i < 3; i++) {
@@ -698,16 +712,20 @@ function initializeGame() {
         return;
     }
 
-    // Set canvas size
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    // Resize handler
-    window.addEventListener('resize', () => {
+    // Set canvas size — always use window dimensions so canvas fills the screen.
+    // We deliberately do NOT use getBoundingClientRect() because the canvas may
+    // not have been laid out yet (rect.height = 0) which would cause instant game-over.
+    // We also ignore visualViewport resize (mobile keyboard pop-up) to prevent
+    // asteroids from going "off-screen" when the keyboard shrinks the viewport.
+    function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         initStars();
-    });
+    }
+    resizeCanvas();
+
+    // Only respond to true window resize events, not keyboard-triggered viewport changes
+    window.addEventListener('resize', resizeCanvas);
 
     console.log('[script.js] Canvas initialized:', canvas.width, 'x', canvas.height);
 
@@ -744,13 +762,42 @@ function initializeGame() {
     }
 
     if (textInput) {
+        // Track IME composition state so we skip composing keystrokes
+        let isComposing = false;
+        textInput.addEventListener('compositionstart', () => {
+            isComposing = true;
+        });
+        textInput.addEventListener('compositionend', () => {
+            isComposing = false;
+            textInput.value = ''; // discard any IME-composed text
+        });
+
+        // keydown handler — NO preventDefault so characters appear in the box.
+        // The input accumulates typed chars so the user can see what they've typed.
+        // We clear the box only when a word is completed or a wrong key is pressed.
         textInput.addEventListener('keydown', (e) => {
             if (!gameRunning || gamePaused) return;
+            if (isComposing) return; // let IME handle it
 
             const char = e.key.toLowerCase();
+
+            // Handle backspace: remove last typed char from target
+            if (e.key === 'Backspace') {
+                if (currentTypingTarget && currentTypingTarget.typedChars > 0) {
+                    currentTypingTarget.typedChars--;
+                    // Update input to reflect current typed progress
+                    setTimeout(() => {
+                        textInput.value = currentTypingTarget
+                            ? currentTypingTarget.word.substring(0, currentTypingTarget.typedChars)
+                            : '';
+                    }, 0);
+                }
+                return;
+            }
+
             if (!/^[a-z]$/.test(char)) return;
 
-            e.preventDefault();
+            // Do NOT call e.preventDefault() — we want the character to appear
 
             if (asteroids.length === 0) return;
 
@@ -780,17 +827,21 @@ function initializeGame() {
                     asteroids = asteroids.filter(a => a !== currentTypingTarget);
                     currentTypingTarget = null;
 
+                    // Clear input box on word completion
+                    setTimeout(() => { textInput.value = ''; }, 0);
+
                     // Spawn new asteroid
                     if (gameRunning) {
                         asteroids.push(new Asteroid());
                     }
                 }
+                // On correct char: let the character stay in the box naturally
             } else {
+                // Wrong key: reset typed progress and clear the box
                 playSound(300, 0.1);
                 currentTypingTarget.typedChars = 0;
+                setTimeout(() => { textInput.value = ''; }, 0);
             }
-
-            textInput.value = '';
         });
 
         // Tab key for AI help
