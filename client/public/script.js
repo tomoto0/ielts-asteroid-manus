@@ -583,23 +583,8 @@ function startGame() {
     if (pauseButton) pauseButton.style.display = 'inline-block';
     if (menuButton) menuButton.style.display = 'inline-block';
 
-    setTimeout(() => {
-        if (textInput) textInput.focus();
-    }, 100);
-
-    // Keep textInput focused during gameplay so typing always works.
-    // Refocus the input when focus moves to non-interactive elements (canvas, body).
-    // We do NOT steal focus from buttons so PAUSE/MENU/SOUND still work.
-    if (textInput) {
-        textInput.addEventListener('blur', (e) => {
-            if (!gameRunning || gamePaused) return;
-            const focusTarget = e.relatedTarget;
-            // Allow focus to move to buttons and selects
-            if (focusTarget && (focusTarget.tagName === 'BUTTON' || focusTarget.tagName === 'SELECT' || focusTarget.tagName === 'A')) return;
-            // Refocus input for all other cases (canvas click, body click, etc.)
-            setTimeout(() => textInput.focus(), 50);
-        }, { once: false });
-    }
+    // textInput is now readonly/display-only; document-level keydown handles all typing.
+    // No focus management needed.
 
     if (bgmEnabled) startBGM();
 
@@ -761,98 +746,96 @@ function initializeGame() {
         });
     }
 
+    // ── Global keyboard handler ──────────────────────────────────
+    // Listening on `document` (not on textInput) means typing always works
+    // regardless of which element currently has focus.
+    // textInput is used purely as a visual display — it is readonly.
     if (textInput) {
-        // Track IME composition state so we skip composing keystrokes
-        let isComposing = false;
-        textInput.addEventListener('compositionstart', () => {
-            isComposing = true;
-        });
+        textInput.setAttribute('readonly', 'readonly');
+        textInput.setAttribute('tabindex', '-1'); // remove from tab order
+    }
+
+    // Track IME composition state
+    let isComposing = false;
+    if (textInput) {
+        textInput.addEventListener('compositionstart', () => { isComposing = true; });
         textInput.addEventListener('compositionend', () => {
             isComposing = false;
-            textInput.value = ''; // discard any IME-composed text
-        });
-
-        // keydown handler — NO preventDefault so characters appear in the box.
-        // The input accumulates typed chars so the user can see what they've typed.
-        // We clear the box only when a word is completed or a wrong key is pressed.
-        textInput.addEventListener('keydown', (e) => {
-            if (!gameRunning || gamePaused) return;
-            if (isComposing) return; // let IME handle it
-
-            const char = e.key.toLowerCase();
-
-            // Handle backspace: remove last typed char from target
-            if (e.key === 'Backspace') {
-                e.preventDefault();
-                if (currentTypingTarget && currentTypingTarget.typedChars > 0) {
-                    currentTypingTarget.typedChars--;
-                    textInput.value = currentTypingTarget.word.substring(0, currentTypingTarget.typedChars);
-                }
-                return;
-            }
-
-            if (!/^[a-z]$/.test(char)) return;
-
-            // Use preventDefault so we fully control what appears in the box.
-            // We manually set textInput.value to accumulate typed characters.
-            e.preventDefault();
-
-            if (asteroids.length === 0) return;
-
-            // Find target asteroid
-            if (!currentTypingTarget) {
-                currentTypingTarget = asteroids[0];
-                currentTypingTarget.isTargeted = true;
-            }
-
-            // Check if character matches
-            if (char === currentTypingTarget.word[currentTypingTarget.typedChars]) {
-                currentTypingTarget.typedChars++;
-                playSound(800, 0.1);
-
-                // Manually accumulate the character in the input box
-                textInput.value = currentTypingTarget.word.substring(0, currentTypingTarget.typedChars);
-
-                // Word complete
-                if (currentTypingTarget.typedChars === currentTypingTarget.word.length) {
-                    score += 10;
-                    wordsDestroyedCount++;
-                    playSound(1200, 0.2);
-
-                    // Spawn explosion at asteroid center
-                    const ex = currentTypingTarget.x + currentTypingTarget.size / 2;
-                    const ey = currentTypingTarget.y + currentTypingTarget.size / 2;
-                    spawnExplosion(ex, ey, currentTypingTarget.colorScheme.glow);
-                    spawnScorePopup(ex, ey - currentTypingTarget.size / 2, 10);
-
-                    asteroids = asteroids.filter(a => a !== currentTypingTarget);
-                    currentTypingTarget = null;
-
-                    // Clear input box on word completion
-                    textInput.value = '';
-
-                    // Spawn new asteroid
-                    if (gameRunning) {
-                        asteroids.push(new Asteroid());
-                    }
-                }
-            } else {
-                // Wrong key: reset typed progress and clear the box
-                playSound(300, 0.1);
-                currentTypingTarget.typedChars = 0;
-                textInput.value = '';
-            }
-        });
-
-        // Tab key for AI help
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab' && gameRunning) {
-                e.preventDefault();
-                const helpButton = document.getElementById('helpButton');
-                if (helpButton) helpButton.click();
-            }
+            if (textInput) textInput.value = '';
         });
     }
+
+    document.addEventListener('keydown', (e) => {
+        // Tab → AI help (works in all states)
+        if (e.key === 'Tab' && gameRunning) {
+            e.preventDefault();
+            const helpButton = document.getElementById('helpButton');
+            if (helpButton) helpButton.click();
+            return;
+        }
+
+        if (!gameRunning || gamePaused) return;
+        if (isComposing) return;
+
+        // Ignore keystrokes while a real input/textarea (other than our display box) is focused
+        const active = document.activeElement;
+        if (active && active !== textInput &&
+            (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+
+        const char = e.key.toLowerCase();
+        const displayInput = document.getElementById('textInput');
+
+        // Backspace: undo last typed char
+        if (e.key === 'Backspace') {
+            e.preventDefault();
+            if (currentTypingTarget && currentTypingTarget.typedChars > 0) {
+                currentTypingTarget.typedChars--;
+                if (displayInput) displayInput.value = currentTypingTarget.word.substring(0, currentTypingTarget.typedChars);
+            }
+            return;
+        }
+
+        if (!/^[a-z]$/.test(char)) return;
+        e.preventDefault();
+
+        if (asteroids.length === 0) return;
+
+        // Lock onto first asteroid if no target yet
+        if (!currentTypingTarget) {
+            currentTypingTarget = asteroids[0];
+            currentTypingTarget.isTargeted = true;
+        }
+
+        if (char === currentTypingTarget.word[currentTypingTarget.typedChars]) {
+            currentTypingTarget.typedChars++;
+            playSound(800, 0.1);
+
+            if (displayInput) displayInput.value = currentTypingTarget.word.substring(0, currentTypingTarget.typedChars);
+
+            // Word complete
+            if (currentTypingTarget.typedChars === currentTypingTarget.word.length) {
+                score += 10;
+                wordsDestroyedCount++;
+                playSound(1200, 0.2);
+
+                const ex = currentTypingTarget.x + currentTypingTarget.size / 2;
+                const ey = currentTypingTarget.y + currentTypingTarget.size / 2;
+                spawnExplosion(ex, ey, currentTypingTarget.colorScheme.glow);
+                spawnScorePopup(ex, ey - currentTypingTarget.size / 2, 10);
+
+                asteroids = asteroids.filter(a => a !== currentTypingTarget);
+                currentTypingTarget = null;
+                if (displayInput) displayInput.value = '';
+
+                if (gameRunning) asteroids.push(new Asteroid());
+            }
+        } else {
+            // Wrong key
+            playSound(300, 0.1);
+            currentTypingTarget.typedChars = 0;
+            if (displayInput) displayInput.value = '';
+        }
+    });
 
     if (pauseButton) {
         pauseButton.addEventListener('click', pauseGame);

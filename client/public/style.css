@@ -249,6 +249,8 @@ canvas {
   box-shadow: 0 0 12px rgba(0,229,255,0.3), inset 0 0 12px rgba(0,229,255,0.05);
   caret-color: var(--neon-green);
   letter-spacing: 0.1em;
+  cursor: default;
+  pointer-events: none;
 }
 
 #textInput:focus {
