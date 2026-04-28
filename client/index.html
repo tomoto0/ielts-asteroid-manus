@@ -1,38 +1,86 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 
   <head>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>IELTS Vocabulary Asteroid Game</title>
 
-    <!-- SEO -->
-    <meta name="description" content="Learn 708 IELTS vocabulary words by typing them to destroy falling asteroids. Supports 11 languages, AI tips via Gemini, and a global leaderboard." />
-    <meta name="keywords" content="IELTS, vocabulary, asteroid game, typing game, English learning, language learning" />
+    <!-- ─── Primary Meta ─────────────────────────────────────────── -->
+    <title>IELTS Vocabulary Asteroid Game | IELTSボキャブラリー小惑星ゲーム</title>
+    <meta name="description" content="708個のIELTS単語を打ち込んで小惑星を破壊する英語学習ゲーム。11言語対応・AIヒント・グローバルリーダーボード搭載。Type IELTS vocabulary words to destroy falling asteroids. 11 languages, AI tips, global leaderboard." />
+    <meta name="keywords" content="IELTS, vocabulary, asteroid game, typing game, English learning, language learning, IELTS単語, 英語学習, タイピングゲーム, 宇宙ゲーム" />
+    <meta name="author" content="IELTS Asteroid Game" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#000d1a" />
 
-    <!-- OGP / Open Graph -->
+    <!-- ─── Canonical URL ─────────────────────────────────────────── -->
+    <link rel="canonical" href="https://ielts-typing-game.manus.space/" />
+
+    <!-- ─── Open Graph (Facebook / LINE / general SNS) ───────────── -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="IELTS Vocabulary Asteroid Game" />
-    <meta property="og:description" content="Learn 708 IELTS vocabulary words by typing them to destroy falling asteroids. Supports 11 languages and AI tips." />
-    <meta property="og:image" content="https://d2xsxph8kpxj0f.cloudfront.net/310419663027084947/9DnwzxsHiWb7cWTxwRXotk/ogp-ielts-asteroid-hYanEgMpi5kSXMLSWue6wc.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://ielts-typing-game.manus.space/" />
     <meta property="og:site_name" content="IELTS Vocabulary Asteroid Game" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:title" content="IELTS Vocabulary Asteroid Game 🚀 | IELTSボキャブラリー小惑星ゲーム" />
+    <meta property="og:description" content="708個のIELTS単語を打ち込んで小惑星を破壊しよう！11言語翻訳・AIヒント・グローバルリーダーボード搭載の無料英語学習ゲーム。" />
+    <meta property="og:image" content="https://d2xsxph8kpxj0f.cloudfront.net/310419663027084947/9DnwzxsHiWb7cWTxwRXotk/ogp-ielts-asteroid-v2-GcaQMzPU8VYLV5J7VBf4Fa.png" />
+    <meta property="og:image:secure_url" content="https://d2xsxph8kpxj0f.cloudfront.net/310419663027084947/9DnwzxsHiWb7cWTxwRXotk/ogp-ielts-asteroid-v2-GcaQMzPU8VYLV5J7VBf4Fa.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="2528" />
+    <meta property="og:image:height" content="1696" />
+    <meta property="og:image:alt" content="IELTS Vocabulary Asteroid Game — 宇宙船がIELTS単語の書かれた小惑星をレーザーで破壊するゲーム画面" />
 
-    <!-- Twitter Card -->
+    <!-- ─── Twitter / X Card ──────────────────────────────────────── -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="IELTS Vocabulary Asteroid Game" />
-    <meta name="twitter:description" content="Learn 708 IELTS vocabulary words by typing them to destroy falling asteroids." />
-    <meta name="twitter:image" content="https://d2xsxph8kpxj0f.cloudfront.net/310419663027084947/9DnwzxsHiWb7cWTxwRXotk/ogp-ielts-asteroid-hYanEgMpi5kSXMLSWue6wc.png" />
+    <meta name="twitter:site" content="@ielts_asteroid" />
+    <meta name="twitter:creator" content="@ielts_asteroid" />
+    <meta name="twitter:url" content="https://ielts-typing-game.manus.space/" />
+    <meta name="twitter:title" content="IELTS Vocabulary Asteroid Game 🚀" />
+    <meta name="twitter:description" content="708個のIELTS単語を打ち込んで小惑星を破壊！11言語対応・AIヒント・グローバルリーダーボード搭載の無料英語学習ゲーム🌍" />
+    <meta name="twitter:image" content="https://d2xsxph8kpxj0f.cloudfront.net/310419663027084947/9DnwzxsHiWb7cWTxwRXotk/ogp-ielts-asteroid-v2-GcaQMzPU8VYLV5J7VBf4Fa.png" />
+    <meta name="twitter:image:alt" content="IELTS Vocabulary Asteroid Game — space shooter typing game" />
 
-    <!-- Google Fonts: Orbitron (game titles) + Share Tech Mono (HUD/UI) -->
+    <!-- ─── LINE (uses OGP og:image / og:title / og:description) ──── -->
+    <!-- LINE reads standard OGP tags above; no additional tags needed. -->
+    <!-- Recommended: og:image must be ≥200×200px and ≤5MB (PNG/JPEG). ✓ -->
+
+    <!-- ─── Facebook App (optional app ID for Insights) ──────────── -->
+    <!-- <meta property="fb:app_id" content="YOUR_FB_APP_ID" /> -->
+
+    <!-- ─── Structured Data (JSON-LD) ────────────────────────────── -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "IELTS Vocabulary Asteroid Game",
+      "alternateName": "IELTSボキャブラリー小惑星ゲーム",
+      "url": "https://ielts-typing-game.manus.space/",
+      "description": "708個のIELTS単語を打ち込んで小惑星を破壊する英語学習ゲーム。11言語対応・AIヒント・グローバルリーダーボード搭載。",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Web",
+      "browserRequirements": "Requires JavaScript",
+      "inLanguage": ["ja", "en", "zh", "ko", "es", "fr", "de", "it", "pt", "ar", "hi"],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "JPY"
+      },
+      "image": "https://d2xsxph8kpxj0f.cloudfront.net/310419663027084947/9DnwzxsHiWb7cWTxwRXotk/ogp-ielts-asteroid-v2-GcaQMzPU8VYLV5J7VBf4Fa.png"
+    }
+    </script>
+
+    <!-- ─── Favicon ───────────────────────────────────────────────── -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+    <!-- ─── Google Fonts: Orbitron (game titles) + Share Tech Mono (HUD/UI) ── -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
 
-    <!-- Game stylesheet -->
+    <!-- ─── Game stylesheet ──────────────────────────────────────── -->
     <link rel="stylesheet" href="/style.css" />
   </head>
 
@@ -41,7 +89,7 @@
     <!-- Game scripts loaded globally before React so vanilla JS can access globals -->
     <script src="/ielts_words.js?v=1"></script>
     <script src="/gemini.js?v=2"></script>
-    <script src="/script.js?v=4"></script>
+    <script src="/script.js?v=5"></script>
     <script type="module" src="/src/main.tsx"></script>
     <script
       defer

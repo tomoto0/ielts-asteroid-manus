@@ -31,3 +31,9 @@
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
 - [x] Deploy to Manus platform (user clicks Publish button)
+
+## Phase 7: OGP Image / SNS Meta Tags / README
+- [x] Generate high-quality OGP image (1200x630) for the game
+- [x] Upload OGP image to CDN via manus-upload-file --webdev
+- [x] Update index.html with comprehensive SNS meta tags (OGP, Twitter Card, LINE, Facebook, ja_JP locale)
+- [x] Create English README.md at project root
