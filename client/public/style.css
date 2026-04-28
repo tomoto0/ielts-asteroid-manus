@@ -238,24 +238,22 @@ canvas {
   border: 2px solid var(--neon-cyan);
   color: var(--neon-cyan);
   padding: 12px 20px;
+  min-height: 57px;
   font-family: var(--font-mono);
   font-size: clamp(1.2rem, 3vw, 1.6rem);
   width: clamp(240px, 30vw, 360px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   border-radius: 4px;
-  outline: none;
   backdrop-filter: blur(8px);
   transition: box-shadow 0.2s, border-color 0.2s;
   box-shadow: 0 0 12px rgba(0,229,255,0.3), inset 0 0 12px rgba(0,229,255,0.05);
-  caret-color: var(--neon-green);
   letter-spacing: 0.1em;
   cursor: default;
   pointer-events: none;
-}
-
-#textInput:focus {
-  border-color: var(--neon-green);
-  box-shadow: 0 0 20px rgba(0,255,136,0.5), inset 0 0 16px rgba(0,255,136,0.08);
+  white-space: pre;
 }
 
 #currentTarget {
