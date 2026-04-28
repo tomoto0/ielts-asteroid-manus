@@ -450,17 +450,16 @@ function completeCurrentTypingTarget() {
     if (!currentTypingTarget) return;
 
     const completedTarget = currentTypingTarget;
-    score += 10;
+    const pointsEarned = Math.floor(Math.random() * 6) + 5; // 5–10 random
+    score += pointsEarned;
     wordsDestroyedCount++;
     playSound(1200, 0.2);
-
     // Recover HP on successful destroy (capped at HP_MAX)
     playerHP = Math.min(HP_MAX, playerHP + HP_RECOVER);
-
     const ex = completedTarget.x + completedTarget.size / 2;
     const ey = completedTarget.y + completedTarget.size / 2;
     spawnExplosion(ex, ey, completedTarget.colorScheme.glow);
-    spawnScorePopup(ex, ey - completedTarget.size / 2, 10);
+    spawnScorePopup(ex, ey - completedTarget.size / 2, pointsEarned);
 
     // Speak the translation of the destroyed word in the selected language
     speakTranslation(completedTarget.word, selectedLanguage);
