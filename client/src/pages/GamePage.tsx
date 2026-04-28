@@ -24,11 +24,11 @@ const LANG_FLAGS: Record<string, string> = {
 const RANK_ICONS = ["🥇", "🥈", "🥉"];
 
 /**
- * GameShell - static DOM structure for the vanilla JS game.
- * Wrapped in React.memo with no props so it NEVER re-renders after initial mount.
- * This guarantees that the display-only typing HUD managed by script.js is never wiped by React.
+ * GameShell has ZERO props — React.memo guarantees it never re-renders after mount.
+ * All event listeners (startButton, leaderboardButton) are bound imperatively
+ * from GamePage's useEffect, so React re-renders never touch the DOM nodes.
  */
-const GameShell = memo(function GameShell({ onLeaderboardClick }: { onLeaderboardClick: () => void }) {
+const GameShell = memo(function GameShell() {
   return (
     <>
       {/* ── Game Canvas ── */}
@@ -56,10 +56,7 @@ const GameShell = memo(function GameShell({ onLeaderboardClick }: { onLeaderboar
           </select>
         </div>
         {/* Leaderboard toggle button inside the overlay */}
-        <button
-          id="leaderboardButton"
-          onClick={onLeaderboardClick}
-        >
+        <button id="leaderboardButton">
           🏆 Leaderboard
         </button>
       </div>
@@ -123,11 +120,18 @@ export default function GamePage() {
     };
   }, [refetchLeaderboard]);
 
-  const handleLeaderboardClick = useCallback(() => {
-    setShowLeaderboard((v) => {
-      if (!v) refetchLeaderboard();
-      return !v;
-    });
+  // Bind leaderboard button imperatively so GameShell never needs to re-render
+  useEffect(() => {
+    const btn = document.getElementById('leaderboardButton');
+    if (!btn) return;
+    const handler = () => {
+      setShowLeaderboard((v) => {
+        if (!v) refetchLeaderboard();
+        return !v;
+      });
+    };
+    btn.addEventListener('click', handler);
+    return () => btn.removeEventListener('click', handler);
   }, [refetchLeaderboard]);
 
   return (
@@ -136,7 +140,7 @@ export default function GamePage() {
       style={{ margin: 0, padding: 0, overflow: "hidden", backgroundColor: "#050a14", position: "relative" }}
     >
       {/* GameShell is memoized and never re-renders — the typing HUD is safe from React */}
-      <GameShell onLeaderboardClick={handleLeaderboardClick} />
+      <GameShell />
 
       {/* ── Leaderboard Overlay ── */}
       {showLeaderboard && (
