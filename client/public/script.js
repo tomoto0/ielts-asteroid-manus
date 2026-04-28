@@ -477,8 +477,8 @@ function completeCurrentTypingTarget() {
 }
 
 function handleGameKeydown(e) {
-    // Tab -> AI help (works in all states)
-    if (e.key === 'Tab' && gameRunning) {
+    // Tab -> AI help (works in ALL states, including opening screen)
+    if (e.key === 'Tab') {
         e.preventDefault();
         const helpButton = document.getElementById('helpButton');
         if (helpButton) helpButton.click();
@@ -1183,16 +1183,79 @@ if (document.readyState === 'loading') {
     setTimeout(initGameWhenReady, 1000);
 }
 
+// ── AI Tutor tip pool (always available, never repeats consecutively) ─────────
+const TIPS_OPENING = [
+    "Type the first letters of a word to lock on to that asteroid!",
+    "Use Backspace to clear your input and re-target a different asteroid.",
+    "Destroy asteroids before they reach the bottom to keep your HP up.",
+    "Each word you destroy recovers 15 HP — stay aggressive!",
+    "IELTS Band 7+ words appear more often as your score climbs.",
+    "Try to target the asteroid closest to the bottom first.",
+    "Your HP drops 15% per missed asteroid — accuracy matters!",
+    "Toggle BGM off with the BGM button if you find music distracting.",
+    "The translation of each destroyed word is read aloud — listen carefully!",
+    "Practice typing common IELTS prefixes: un-, re-, pre-, over-, mis-.",
+    "Words with double letters (accommodate, necessary) are common IELTS traps.",
+    "Aim for 50+ words per game to build strong IELTS vocabulary retention.",
+    "Reading the translation aloud yourself after TTS reinforces memory.",
+    "Focus on rhythm: type steadily rather than rushing and making errors.",
+    "Academic IELTS Task 2 loves words like: albeit, notwithstanding, hitherto.",
+];
+const TIPS_INGAME = [
+    "Target the lowest asteroid first — it's the most urgent threat!",
+    "Mistyped a letter? Backspace resets your buffer instantly.",
+    "Destroying asteroids recovers HP — keep your combo going!",
+    "Short words are faster to type but worth the same 10 points.",
+    "Stay calm — panicking causes typos. Breathe and type steadily.",
+    "Look ahead: plan your next word while finishing the current one.",
+    "HP below 30%? Focus only on the lowest asteroid to survive.",
+    "Longer words give the same 10 pts — prioritise survival over speed.",
+    "The translation is read aloud after each destroy — listen and learn!",
+    "Try to keep 3+ asteroids on screen — more targets means more options.",
+    "Words you struggle to type are the ones most worth reviewing later.",
+    "Consistent 40 WPM beats erratic 80 WPM with many corrections.",
+    "Use the Tab key anytime during play to get another tip!",
+    "Vocabulary tip: 'elicit' means to draw out a response or reaction.",
+    "Vocabulary tip: 'mitigate' means to lessen the severity of something.",
+    "Vocabulary tip: 'ubiquitous' means present everywhere at the same time.",
+    "Vocabulary tip: 'pragmatic' means dealing with things practically.",
+    "Vocabulary tip: 'ambiguous' means open to more than one interpretation.",
+];
+let _lastTipIndex = -1;
+function _pickTip(pool) {
+    let idx;
+    do { idx = Math.floor(Math.random() * pool.length); } while (idx === _lastTipIndex && pool.length > 1);
+    _lastTipIndex = idx;
+    return pool[idx];
+}
+function _speakTip(text) {
+    if (!soundEnabled) return;
+    if (!('speechSynthesis' in window)) return;
+    if (translationSpeaking) return;
+    try {
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = 'en-US';
+        utt.rate = 0.88;
+        utt.pitch = 1.0;
+        utt.volume = 1.0;
+        window.speechSynthesis.speak(utt);
+    } catch (e) { /* ignore */ }
+}
 function getHelpTip() {
     const aiMessage = document.getElementById('aiMessage');
     if (!aiMessage) return;
-    // Debounce: don't spam the endpoint
+    // Debounce: don't spam while a tip is loading
     if (aiMessage.dataset.loading === 'true') return;
+    // Pick a local tip immediately for instant feedback
+    const localTip = _pickTip(gameRunning ? TIPS_INGAME : TIPS_OPENING);
+    aiMessage.textContent = localTip;
+    _speakTip(localTip);
+    // Also try the LLM endpoint; replace local tip if it returns something different
     aiMessage.dataset.loading = 'true';
-    aiMessage.textContent = 'Getting advice...';
     const prompt = gameRunning
-        ? `Score: ${score}, Words destroyed: ${wordsDestroyedCount}, HP: ${playerHP}%. Give a short IELTS typing game tip.`
-        : 'Give a short motivational tip for IELTS vocabulary practice.';
+        ? `Score: ${score}, Words destroyed: ${wordsDestroyedCount}, HP: ${playerHP}%. Give ONE short, specific, encouraging IELTS typing game tip (max 20 words). Do NOT repeat generic advice.`
+        : 'Give ONE short, specific IELTS vocabulary study tip (max 20 words). Be creative and varied.';
     fetch('/api/gemini-tip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1200,12 +1263,14 @@ function getHelpTip() {
     })
         .then(r => r.json())
         .then(data => {
-            aiMessage.textContent = data.text || 'Keep practicing!';
+            const llmTip = (data.text || '').trim();
+            // Only replace if LLM returned something meaningfully different from the fallback
+            const fallback = "Focus on accuracy first, then speed. You're doing great!";
+            if (llmTip && llmTip !== fallback) {
+                aiMessage.textContent = llmTip;
+                _speakTip(llmTip);
+            }
         })
-        .catch(() => {
-            aiMessage.textContent = 'Focus on accuracy first, then speed!';
-        })
-        .finally(() => {
-            aiMessage.dataset.loading = 'false';
-        });
+        .catch(() => { /* keep local tip */ })
+        .finally(() => { aiMessage.dataset.loading = 'false'; });
 }
