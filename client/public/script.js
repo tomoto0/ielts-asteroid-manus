@@ -783,21 +783,19 @@ function initializeGame() {
 
             // Handle backspace: remove last typed char from target
             if (e.key === 'Backspace') {
+                e.preventDefault();
                 if (currentTypingTarget && currentTypingTarget.typedChars > 0) {
                     currentTypingTarget.typedChars--;
-                    // Update input to reflect current typed progress
-                    setTimeout(() => {
-                        textInput.value = currentTypingTarget
-                            ? currentTypingTarget.word.substring(0, currentTypingTarget.typedChars)
-                            : '';
-                    }, 0);
+                    textInput.value = currentTypingTarget.word.substring(0, currentTypingTarget.typedChars);
                 }
                 return;
             }
 
             if (!/^[a-z]$/.test(char)) return;
 
-            // Do NOT call e.preventDefault() — we want the character to appear
+            // Use preventDefault so we fully control what appears in the box.
+            // We manually set textInput.value to accumulate typed characters.
+            e.preventDefault();
 
             if (asteroids.length === 0) return;
 
@@ -811,6 +809,9 @@ function initializeGame() {
             if (char === currentTypingTarget.word[currentTypingTarget.typedChars]) {
                 currentTypingTarget.typedChars++;
                 playSound(800, 0.1);
+
+                // Manually accumulate the character in the input box
+                textInput.value = currentTypingTarget.word.substring(0, currentTypingTarget.typedChars);
 
                 // Word complete
                 if (currentTypingTarget.typedChars === currentTypingTarget.word.length) {
@@ -828,19 +829,18 @@ function initializeGame() {
                     currentTypingTarget = null;
 
                     // Clear input box on word completion
-                    setTimeout(() => { textInput.value = ''; }, 0);
+                    textInput.value = '';
 
                     // Spawn new asteroid
                     if (gameRunning) {
                         asteroids.push(new Asteroid());
                     }
                 }
-                // On correct char: let the character stay in the box naturally
             } else {
                 // Wrong key: reset typed progress and clear the box
                 playSound(300, 0.1);
                 currentTypingTarget.typedChars = 0;
-                setTimeout(() => { textInput.value = ''; }, 0);
+                textInput.value = '';
             }
         });
 
