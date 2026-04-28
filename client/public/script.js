@@ -16,7 +16,7 @@ let score = 0;
 let asteroids = [];
 let currentTypingTarget = null;
 let selectedLanguage = 'ja';
-let isComposing = false;
+let typedBuffer = '';
 let keyboardHandlersBound = false;
 
 // Canvas and context - will be initialized later
@@ -261,7 +261,7 @@ function drawDangerFlash() {
     dangerFlash = Math.max(0, dangerFlash - 0.04);
 }
 
-function getDisplayInput() {
+function getTypingDisplay() {
     return document.getElementById('textInput');
 }
 
@@ -269,12 +269,31 @@ function getCurrentTargetLabel() {
     return document.getElementById('currentTarget');
 }
 
+function getTargetBottom(target) {
+    return target.y + target.size;
+}
+
+function pickPriorityTarget() {
+    if (asteroids.length === 0) return null;
+
+    return asteroids.reduce((bestTarget, asteroid) => {
+        if (!bestTarget) return asteroid;
+
+        const bottomDelta = getTargetBottom(asteroid) - getTargetBottom(bestTarget);
+        if (bottomDelta !== 0) return bottomDelta > 0 ? asteroid : bestTarget;
+
+        const asteroidOffset = Math.abs((asteroid.x + asteroid.size / 2) - (canvas.width / 2));
+        const bestOffset = Math.abs((bestTarget.x + bestTarget.size / 2) - (canvas.width / 2));
+        return asteroidOffset < bestOffset ? asteroid : bestTarget;
+    }, null);
+}
+
 function syncTypingUi() {
-    const displayInput = getDisplayInput();
+    const displayInput = getTypingDisplay();
     if (displayInput) {
-        displayInput.value = currentTypingTarget
-            ? currentTypingTarget.word.substring(0, currentTypingTarget.typedChars)
-            : '';
+        displayInput.textContent = currentTypingTarget
+            ? currentTypingTarget.word.substring(0, typedBuffer.length)
+            : typedBuffer;
     }
 
     const currentTargetLabel = getCurrentTargetLabel();
@@ -285,36 +304,38 @@ function syncTypingUi() {
     }
 }
 
-function clearTypingTarget(resetProgress = true) {
-    if (currentTypingTarget) {
-        currentTypingTarget.isTargeted = false;
-        if (resetProgress) currentTypingTarget.typedChars = 0;
+function syncTypingState() {
+    if (currentTypingTarget && !asteroids.includes(currentTypingTarget)) {
+        currentTypingTarget = null;
+        typedBuffer = '';
     }
 
-    currentTypingTarget = null;
-    syncTypingUi();
-}
-
-function setTypingTarget(nextTarget) {
-    if (!nextTarget) {
-        clearTypingTarget();
-        return;
+    if (!currentTypingTarget && gameRunning && asteroids.length > 0) {
+        currentTypingTarget = pickPriorityTarget();
     }
 
-    if (currentTypingTarget && currentTypingTarget !== nextTarget) {
-        currentTypingTarget.isTargeted = false;
-        currentTypingTarget.typedChars = 0;
-    }
-
-    currentTypingTarget = nextTarget;
     for (const asteroid of asteroids) {
-        asteroid.isTargeted = asteroid === currentTypingTarget;
+        const isTarget = asteroid === currentTypingTarget;
+        asteroid.isTargeted = isTarget;
+        asteroid.typedChars = isTarget ? typedBuffer.length : 0;
     }
 
     syncTypingUi();
+    return currentTypingTarget;
 }
 
-function getTypedCharFromKeydown(event) {
+function clearTypingState() {
+    typedBuffer = '';
+    currentTypingTarget = null;
+    syncTypingState();
+}
+
+function resetTypedBuffer() {
+    typedBuffer = '';
+    syncTypingState();
+}
+
+function getTypedCharacter(event) {
     if (typeof event.key === 'string' && /^[a-z]$/i.test(event.key)) {
         return event.key.toLowerCase();
     }
@@ -326,27 +347,10 @@ function getTypedCharFromKeydown(event) {
     return null;
 }
 
-function findBestTargetForChar(char) {
-    const matchingAsteroids = asteroids.filter((asteroid) => asteroid.word[0] === char);
-    if (matchingAsteroids.length === 0) return null;
-
-    matchingAsteroids.sort((a, b) => {
-        const bottomDelta = (b.y + b.size) - (a.y + a.size);
-        if (bottomDelta !== 0) return bottomDelta;
-
-        const aOffset = Math.abs((a.x + a.size / 2) - (canvas.width / 2));
-        const bOffset = Math.abs((b.x + b.size / 2) - (canvas.width / 2));
-        return aOffset - bOffset;
-    });
-
-    return matchingAsteroids[0];
-}
-
 function shouldIgnoreGameKeydown() {
     const active = document.activeElement;
-    const displayInput = getDisplayInput();
 
-    if (!active || active === displayInput) return false;
+    if (!active) return false;
     if (active.isContentEditable) return true;
     if (active instanceof HTMLTextAreaElement) return true;
     if (active instanceof HTMLSelectElement) return true;
@@ -358,7 +362,37 @@ function shouldIgnoreGameKeydown() {
     return false;
 }
 
-function handleDocumentKeydown(e) {
+function spawnAsteroid() {
+    if (!Asteroid || !gameRunning) return;
+
+    asteroids.push(new Asteroid());
+    syncTypingState();
+}
+
+function completeCurrentTypingTarget() {
+    if (!currentTypingTarget) return;
+
+    const completedTarget = currentTypingTarget;
+    score += 10;
+    wordsDestroyedCount++;
+    playSound(1200, 0.2);
+
+    const ex = completedTarget.x + completedTarget.size / 2;
+    const ey = completedTarget.y + completedTarget.size / 2;
+    spawnExplosion(ex, ey, completedTarget.colorScheme.glow);
+    spawnScorePopup(ex, ey - completedTarget.size / 2, 10);
+
+    asteroids = asteroids.filter((asteroid) => asteroid !== completedTarget);
+    typedBuffer = '';
+    currentTypingTarget = null;
+    syncTypingState();
+
+    if (gameRunning) {
+        spawnAsteroid();
+    }
+}
+
+function handleGameKeydown(e) {
     // Tab -> AI help (works in all states)
     if (e.key === 'Tab' && gameRunning) {
         e.preventDefault();
@@ -367,88 +401,49 @@ function handleDocumentKeydown(e) {
         return;
     }
 
-    if (!gameRunning || gamePaused || isComposing) return;
+    if (!gameRunning || gamePaused) return;
+    if (e.defaultPrevented) return;
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     if (shouldIgnoreGameKeydown()) return;
 
     if (e.key === 'Backspace') {
         e.preventDefault();
-        if (currentTypingTarget && currentTypingTarget.typedChars > 0) {
-            currentTypingTarget.typedChars--;
-            syncTypingUi();
+        if (typedBuffer.length > 0) {
+            typedBuffer = typedBuffer.slice(0, -1);
+            syncTypingState();
         }
         return;
     }
 
-    const char = getTypedCharFromKeydown(e);
+    const char = getTypedCharacter(e);
     if (!char) return;
     e.preventDefault();
 
-    if (asteroids.length === 0) return;
-    if (currentTypingTarget && !asteroids.includes(currentTypingTarget)) {
-        clearTypingTarget(false);
-    }
+    const target = syncTypingState();
+    if (!target) return;
 
-    if (!currentTypingTarget) {
-        const nextTarget = findBestTargetForChar(char);
-        if (!nextTarget) {
-            playSound(300, 0.1);
-            return;
-        }
-        setTypingTarget(nextTarget);
-    } else if (currentTypingTarget.typedChars === 0) {
-        const expectedChar = currentTypingTarget.word[0];
-        if (char !== expectedChar) {
-            const alternativeTarget = findBestTargetForChar(char);
-            if (alternativeTarget && alternativeTarget !== currentTypingTarget) {
-                setTypingTarget(alternativeTarget);
-            }
-        }
-    }
-
-    const expectedChar = currentTypingTarget.word[currentTypingTarget.typedChars];
+    const nextCharIndex = typedBuffer.length;
+    const expectedChar = target.wordKey[nextCharIndex];
     if (char === expectedChar) {
-        currentTypingTarget.typedChars++;
+        typedBuffer += target.word[nextCharIndex];
         playSound(800, 0.1);
-        syncTypingUi();
+        syncTypingState();
 
-        if (currentTypingTarget.typedChars === currentTypingTarget.word.length) {
-            const completedTarget = currentTypingTarget;
-            score += 10;
-            wordsDestroyedCount++;
-            playSound(1200, 0.2);
-
-            const ex = completedTarget.x + completedTarget.size / 2;
-            const ey = completedTarget.y + completedTarget.size / 2;
-            spawnExplosion(ex, ey, completedTarget.colorScheme.glow);
-            spawnScorePopup(ex, ey - completedTarget.size / 2, 10);
-
-            asteroids = asteroids.filter((asteroid) => asteroid !== completedTarget);
-            clearTypingTarget(false);
-
-            if (gameRunning) {
-                asteroids.push(new Asteroid());
-            }
+        if (typedBuffer.length === target.word.length) {
+            completeCurrentTypingTarget();
         }
 
         return;
     }
 
     playSound(300, 0.1);
-    currentTypingTarget.typedChars = 0;
-    syncTypingUi();
+    resetTypedBuffer();
 }
 
 function bindKeyboardHandlers() {
     if (keyboardHandlersBound) return;
 
-    document.addEventListener('compositionstart', () => {
-        isComposing = true;
-    });
-    document.addEventListener('compositionend', () => {
-        isComposing = false;
-    });
-    document.addEventListener('keydown', handleDocumentKeydown);
+    window.addEventListener('keydown', handleGameKeydown, true);
 
     keyboardHandlersBound = true;
 }
@@ -542,6 +537,7 @@ function initializeAsteroidClass() {
     Asteroid = class {
         constructor() {
             this.word = gameWords[Math.floor(Math.random() * gameWords.length)];
+            this.wordKey = this.word.toLowerCase();
             this.x = Math.random() * (canvas.width - 120) + 10;
             this.y = -70;
             this.speed = 0.5 + Math.random() * 1.5;
@@ -765,8 +761,8 @@ function startGame() {
     particles = [];
     scorePopups = [];
     currentTypingTarget = null;
+    typedBuffer = '';
     wordsDestroyedCount = 0;
-    isComposing = false;
 
     gameOverlay.style.display = 'none';
     aiPanel.style.display = 'block';
@@ -776,22 +772,23 @@ function startGame() {
         document.activeElement.blur();
     }
 
-    syncTypingUi();
+    syncTypingState();
 
     const pauseButton = document.getElementById('pauseButton');
     const menuButton = document.getElementById('menuButton');
-    if (pauseButton) pauseButton.style.display = 'inline-block';
+    if (pauseButton) {
+        pauseButton.textContent = '⏸ Pause';
+        pauseButton.style.display = 'inline-block';
+    }
     if (menuButton) menuButton.style.display = 'inline-block';
-
-    // textInput is display-only; document-level handlers own typing state.
 
     if (bgmEnabled) startBGM();
 
-    for (let i = 0; i < 3; i++) {
+    spawnAsteroid();
+
+    for (let i = 1; i < 3; i++) {
         setTimeout(() => {
-            if (Asteroid && gameRunning) {
-                asteroids.push(new Asteroid());
-            }
+            spawnAsteroid();
         }, i * 1000);
     }
 
@@ -801,7 +798,7 @@ function startGame() {
 function endGame() {
     gameRunning = false;
     stopBGM();
-    clearTypingTarget();
+    clearTypingState();
     const gameOverlay = document.getElementById('gameOverlay');
     gameOverlay.style.display = 'flex';
     gameOverlay.querySelector('h1').textContent = 'Game Over!';
@@ -866,7 +863,7 @@ function returnToMenu() {
     asteroids = [];
     particles = [];
     scorePopups = [];
-    clearTypingTarget();
+    clearTypingState();
     const gameOverlay = document.getElementById('gameOverlay');
     const typingInput = document.getElementById('typingInput');
     const aiPanel = document.getElementById('aiPanel');
@@ -921,16 +918,15 @@ function initializeGame() {
 
     // Use IELTS words if available
     if (typeof ieltsWords !== 'undefined' && ieltsWords.length > 0) {
-        gameWords = ieltsWords;
+        gameWords = ieltsWords.map((word) => String(word));
         console.log('[script.js] Loaded', gameWords.length, 'IELTS words');
     } else {
         console.warn('[script.js] IELTS words not loaded, using fallback');
-        gameWords = ['abandon', 'ability', 'able', 'about', 'above'];
+        gameWords = ['Active', 'Antique', 'Benefit', 'Culture', 'Journey'];
     }
 
     const startButton = document.getElementById('startButton');
     const translationLanguageSelect = document.getElementById('translationLanguage');
-    const textInput = document.getElementById('textInput');
     const pauseButton = document.getElementById('pauseButton');
     const menuButton = document.getElementById('menuButton');
     const soundToggle = document.getElementById('soundToggle');
@@ -948,16 +944,9 @@ function initializeGame() {
     }
 
     // ── Global keyboard handler ──────────────────────────────────
-    // Listening on `document` (not on textInput) means typing always works
-    // regardless of which element currently has focus.
-    // textInput is used purely as a visual display — it is readonly.
-    if (textInput) {
-        textInput.setAttribute('readonly', 'readonly');
-        textInput.setAttribute('tabindex', '-1'); // remove from tab order
-    }
-
+    // The typing HUD is display-only. Keyboard state lives entirely in script.js.
     bindKeyboardHandlers();
-    syncTypingUi();
+    syncTypingState();
 
     if (pauseButton) {
         pauseButton.addEventListener('click', pauseGame);
