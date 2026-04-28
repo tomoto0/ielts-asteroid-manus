@@ -353,8 +353,14 @@ function shouldIgnoreGameKeydown() {
     if (!active) return false;
     if (active.isContentEditable) return true;
     if (active instanceof HTMLTextAreaElement) return true;
-    if (active instanceof HTMLSelectElement) return true;
-
+    // HTMLSelectElement: only block if the select is visible and interactive
+    // (during gameplay the game overlay — which contains the select — is hidden,
+    //  so we should NOT block typing just because the select still has focus)
+    if (active instanceof HTMLSelectElement) {
+        const overlay = document.getElementById('gameOverlay');
+        const overlayVisible = overlay && overlay.style.display !== 'none';
+        return !!overlayVisible;
+    }
     if (active instanceof HTMLInputElement) {
         return !active.readOnly;
     }
@@ -766,11 +772,13 @@ function startGame() {
 
     gameOverlay.style.display = 'none';
     aiPanel.style.display = 'block';
-    typingInput.style.display = 'block';
+    typingInput.style.display = 'flex';
 
+    // Ensure no interactive element retains focus during gameplay
     if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
     }
+    document.body.focus();
 
     syncTypingState();
 
