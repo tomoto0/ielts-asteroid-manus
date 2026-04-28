@@ -10,6 +10,8 @@
 //   • Screen-edge danger flash
 //   • TTS: English word readout + translated word after destruction
 //   • Survival HP gauge: recovers on asteroid destroy, game over at 0
+//   • Typing-based targeting: asteroid whose word starts with typed chars
+//   • BGM: Holst Jupiter (public domain, Karajan / Internet Archive)
 // ============================================================
 
 let gameRunning = false;
@@ -43,9 +45,8 @@ const ttsLanguageCodes = {
 // Audio Control State
 let soundEnabled = true;
 let bgmEnabled = true;
-let bgmAudioContext = null;
-let bgmOscillator = null;
-let bgmGainNode = null;
+// BGM is now an HTML5 Audio element (Jupiter MP3)
+let bgmAudio = null;
 
 // Use IELTS words if available, otherwise fallback
 let gameWords = [];
@@ -54,9 +55,6 @@ let gameWords = [];
 let wordsDestroyedCount = 0;
 
 // ── Survival HP Gauge ─────────────────────────────────────────
-// HP starts at 100. Each missed asteroid costs HP_DAMAGE.
-// Each destroyed asteroid recovers HP_RECOVER (capped at HP_MAX).
-// Game over when HP reaches 0.
 const HP_MAX = 100;
 const HP_DAMAGE = 10;   // lost per missed asteroid
 const HP_RECOVER = 15;  // gained per destroyed asteroid
@@ -121,7 +119,6 @@ function drawStars() {
     ctx.shadowBlur = 0;
 }
 
-// Nebula background (drawn once per frame, cheap gradient)
 function drawNebula() {
     const t = Date.now() * 0.0002;
     const blobs = [
@@ -282,19 +279,14 @@ function drawHPBar() {
     ctx.roundRect(barX, barY, barW, barH, 4);
     ctx.fill();
 
-    // Fill colour: green → yellow → red based on HP
-    let fillColor;
-    if (ratio > 0.6) {
-        fillColor = '#00ff88';
-    } else if (ratio > 0.3) {
-        fillColor = '#ffe600';
-    } else {
-        fillColor = '#ff3366';
-    }
-
     if (ratio > 0) {
-        ctx.fillStyle = fillColor;
-        ctx.shadowColor = fillColor;
+        // Gradient fill: green at full, red at empty
+        const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+        grad.addColorStop(0, '#ff3366');
+        grad.addColorStop(0.4, '#ffe600');
+        grad.addColorStop(1, '#00ff88');
+        ctx.fillStyle = grad;
+        ctx.shadowColor = ratio > 0.6 ? '#00ff88' : ratio > 0.3 ? '#ffe600' : '#ff3366';
         ctx.shadowBlur = 8;
         ctx.beginPath();
         ctx.roundRect(barX, barY, barW * ratio, barH, 4);
@@ -328,19 +320,21 @@ function getTargetBottom(target) {
     return target.y + target.size;
 }
 
-function pickPriorityTarget() {
-    if (asteroids.length === 0) return null;
-
-    return asteroids.reduce((bestTarget, asteroid) => {
-        if (!bestTarget) return asteroid;
-
-        const bottomDelta = getTargetBottom(asteroid) - getTargetBottom(bestTarget);
-        if (bottomDelta !== 0) return bottomDelta > 0 ? asteroid : bestTarget;
-
-        const asteroidOffset = Math.abs((asteroid.x + asteroid.size / 2) - (canvas.width / 2));
-        const bestOffset = Math.abs((bestTarget.x + bestTarget.size / 2) - (canvas.width / 2));
-        return asteroidOffset < bestOffset ? asteroid : bestTarget;
-    }, null);
+// ── Typing-based target selection ────────────────────────────
+// Returns the asteroid whose word starts with `prefix` (case-insensitive).
+// If multiple match, prefer the one closest to the bottom.
+function findMatchingAsteroid(prefix) {
+    if (!prefix || asteroids.length === 0) return null;
+    const lower = prefix.toLowerCase();
+    let best = null;
+    for (const a of asteroids) {
+        if (a.wordKey.startsWith(lower)) {
+            if (!best || getTargetBottom(a) > getTargetBottom(best)) {
+                best = a;
+            }
+        }
+    }
+    return best;
 }
 
 function syncTypingUi() {
@@ -355,7 +349,7 @@ function syncTypingUi() {
     if (currentTargetLabel) {
         currentTargetLabel.textContent = currentTypingTarget
             ? 'Target: ' + currentTypingTarget.word
-            : 'Target: None';
+            : (typedBuffer ? 'Target: ?' : 'Target: None');
     }
 }
 
@@ -363,18 +357,30 @@ function syncTypingUi() {
 let lastSpokenWord = '';
 
 function syncTypingState() {
+    // If current target was removed (destroyed / fell off), clear it
     if (currentTypingTarget && !asteroids.includes(currentTypingTarget)) {
         currentTypingTarget = null;
-        typedBuffer = '';
+        // Keep typedBuffer so user can re-match another asteroid
     }
 
-    if (!currentTypingTarget && gameRunning && asteroids.length > 0) {
-        currentTypingTarget = pickPriorityTarget();
-        // Speak the new English target word aloud
-        if (currentTypingTarget && currentTypingTarget.word !== lastSpokenWord) {
-            lastSpokenWord = currentTypingTarget.word;
-            speakEnglish(currentTypingTarget.word);
+    // Re-evaluate target based on current typedBuffer
+    if (typedBuffer.length > 0) {
+        const match = findMatchingAsteroid(typedBuffer);
+        if (match && match !== currentTypingTarget) {
+            currentTypingTarget = match;
+            // Speak the new target word if it changed
+            if (currentTypingTarget.word !== lastSpokenWord) {
+                lastSpokenWord = currentTypingTarget.word;
+                speakEnglish(currentTypingTarget.word);
+            }
+        } else if (!match) {
+            // No asteroid matches the current buffer — keep target as-is
+            // (user typed a wrong char; handleGameKeydown will reset buffer)
         }
+    } else {
+        // Buffer is empty: no active target
+        currentTypingTarget = null;
+        lastSpokenWord = '';
     }
 
     for (const asteroid of asteroids) {
@@ -396,6 +402,8 @@ function clearTypingState() {
 
 function resetTypedBuffer() {
     typedBuffer = '';
+    currentTypingTarget = null;
+    lastSpokenWord = '';
     syncTypingState();
 }
 
@@ -417,9 +425,6 @@ function shouldIgnoreGameKeydown() {
     if (!active) return false;
     if (active.isContentEditable) return true;
     if (active instanceof HTMLTextAreaElement) return true;
-    // HTMLSelectElement: only block if the select is visible and interactive
-    // (during gameplay the game overlay — which contains the select — is hidden,
-    //  so we should NOT block typing just because the select still has focus)
     if (active instanceof HTMLSelectElement) {
         const overlay = document.getElementById('gameOverlay');
         const overlayVisible = overlay && overlay.style.display !== 'none';
@@ -487,6 +492,7 @@ function handleGameKeydown(e) {
         e.preventDefault();
         if (typedBuffer.length > 0) {
             typedBuffer = typedBuffer.slice(0, -1);
+            // Re-evaluate target with the shorter buffer
             syncTypingState();
         }
         return;
@@ -496,25 +502,43 @@ function handleGameKeydown(e) {
     if (!char) return;
     e.preventDefault();
 
-    const target = syncTypingState();
-    if (!target) return;
+    // Try extending the buffer with this character
+    const newBuffer = typedBuffer + char;
 
-    const nextCharIndex = typedBuffer.length;
-    const expectedChar = target.wordKey[nextCharIndex];
-    if (char === expectedChar) {
-        typedBuffer += target.word[nextCharIndex];
-        playSound(800, 0.1);
-        syncTypingState();
-
-        if (typedBuffer.length === target.word.length) {
-            completeCurrentTypingTarget();
-        }
-
+    // Check if any asteroid matches the new buffer
+    const match = findMatchingAsteroid(newBuffer);
+    if (!match) {
+        // No match: wrong key — reset buffer and clear target
+        playSound(300, 0.1);
+        resetTypedBuffer();
         return;
     }
 
-    playSound(300, 0.1);
-    resetTypedBuffer();
+    // Valid character: accept it
+    typedBuffer = newBuffer;
+    playSound(800, 0.1);
+
+    // Update target to the matching asteroid
+    if (currentTypingTarget !== match) {
+        currentTypingTarget = match;
+        if (currentTypingTarget.word !== lastSpokenWord) {
+            lastSpokenWord = currentTypingTarget.word;
+            speakEnglish(currentTypingTarget.word);
+        }
+    }
+
+    // Sync visual state
+    for (const asteroid of asteroids) {
+        const isTarget = asteroid === currentTypingTarget;
+        asteroid.isTargeted = isTarget;
+        asteroid.typedChars = isTarget ? typedBuffer.length : 0;
+    }
+    syncTypingUi();
+
+    // Check if word is complete
+    if (typedBuffer.toLowerCase() === currentTypingTarget.wordKey) {
+        completeCurrentTypingTarget();
+    }
 }
 
 function bindKeyboardHandlers() {
@@ -550,15 +574,10 @@ function drawTargetingLaser() {
 
 // ── TTS Functions ─────────────────────────────────────────────
 
-/**
- * Speak an English word using the browser's Web Speech API.
- * Called when a new asteroid becomes the typing target.
- */
 function speakEnglish(word) {
     if (!soundEnabled) return;
     if (!('speechSynthesis' in window)) return;
     try {
-        // Cancel any ongoing speech to avoid queue buildup
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(word);
         utterance.lang = 'en-US';
@@ -571,18 +590,10 @@ function speakEnglish(word) {
     }
 }
 
-/**
- * Fetch the translation of a word from the server, then speak it
- * in the selected language using the Web Speech API.
- * Called after an asteroid is destroyed.
- */
 async function speakTranslation(word, lang) {
     if (!soundEnabled) return;
     if (!('speechSynthesis' in window)) return;
-    if (lang === 'en') {
-        // No translation needed for English
-        return;
-    }
+    if (lang === 'en') return;
     try {
         const response = await fetch('/api/translate', {
             method: 'POST',
@@ -595,7 +606,6 @@ async function speakTranslation(word, lang) {
         if (!translation) return;
 
         const ttsLang = ttsLanguageCodes[lang] || 'ja-JP';
-        // Small delay so the English word finishes speaking first
         setTimeout(() => {
             try {
                 const utterance = new SpeechSynthesisUtterance(translation);
@@ -634,34 +644,34 @@ function playSound(frequency, duration) {
     }
 }
 
-// BGM
+// ── BGM: Jupiter (Holst) ─────────────────────────────────────
+
+function initBGM() {
+    if (bgmAudio) return; // already created
+    bgmAudio = new Audio('/manus-storage/jupiter_2ce0daed.mp3');
+    bgmAudio.loop = true;
+    bgmAudio.volume = 0.35;
+    bgmAudio.preload = 'auto';
+}
+
 function startBGM() {
     if (!bgmEnabled) return;
-    try {
-        bgmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        bgmOscillator = bgmAudioContext.createOscillator();
-        bgmGainNode = bgmAudioContext.createGain();
-        bgmOscillator.connect(bgmGainNode);
-        bgmGainNode.connect(bgmAudioContext.destination);
-        bgmOscillator.frequency.value = 200;
-        bgmOscillator.type = 'sine';
-        bgmGainNode.gain.setValueAtTime(0.1, bgmAudioContext.currentTime);
-        bgmOscillator.start(bgmAudioContext.currentTime);
-    } catch (e) {
-        console.log('BGM not available:', e);
-    }
+    initBGM();
+    // Resume AudioContext if needed (browser autoplay policy)
+    bgmAudio.play().catch((e) => {
+        console.warn('[BGM] Autoplay blocked, will play on next interaction:', e);
+    });
 }
 
 function stopBGM() {
-    if (bgmOscillator) {
-        bgmOscillator.stop();
-        bgmOscillator = null;
+    if (bgmAudio) {
+        bgmAudio.pause();
+        bgmAudio.currentTime = 0;
     }
 }
 
 // ── Asteroid Class ────────────────────────────────────────────
 
-// Neon color palette for asteroids
 const ASTEROID_COLORS = [
     { stroke: '#00e5ff', glow: '#00e5ff', fill: 'rgba(0,100,180,0.15)' },
     { stroke: '#bf00ff', glow: '#bf00ff', fill: 'rgba(80,0,140,0.15)' },
@@ -722,7 +732,6 @@ function initializeAsteroidClass() {
             ctx.translate(cx, cy);
             ctx.rotate(this.rotation);
 
-            // Outer glow halo
             const glowRadius = this.size / 2 + 18;
             const halo = ctx.createRadialGradient(0, 0, this.size / 2 * 0.6, 0, 0, glowRadius);
             halo.addColorStop(0, scheme.fill);
@@ -733,7 +742,6 @@ function initializeAsteroidClass() {
             ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
             ctx.fill();
 
-            // Rocky body
             ctx.beginPath();
             for (let i = 0; i < this.points.length; i++) {
                 const p = this.points[i];
@@ -755,7 +763,6 @@ function initializeAsteroidClass() {
             ctx.shadowBlur = 14 * pulse;
             ctx.stroke();
 
-            // Crater detail
             ctx.shadowBlur = 0;
             ctx.strokeStyle = scheme.stroke.replace(')', ',0.2)').replace('rgb', 'rgba');
             ctx.lineWidth = 0.8;
@@ -770,7 +777,7 @@ function initializeAsteroidClass() {
 
             ctx.restore();
 
-            // ── Word label below asteroid ──
+            // Word label below asteroid
             const textY = this.y + this.size + 52;
             const fontSize = Math.min(22, Math.max(14, this.size * 0.22));
             ctx.font = `bold ${fontSize}px "Orbitron", "Share Tech Mono", monospace`;
@@ -817,7 +824,6 @@ function initializeAsteroidClass() {
 function gameLoop() {
     if (!canvas || !ctx) return;
 
-    // Background
     ctx.fillStyle = '#050a14';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -829,12 +835,10 @@ function gameLoop() {
         updateParticles();
         updateScorePopups();
 
-        // Update asteroids
         for (let i = asteroids.length - 1; i >= 0; i--) {
             asteroids[i].update();
             if (asteroids[i].isOffScreen()) {
                 triggerDangerFlash();
-                // Remove the missed asteroid and deduct HP
                 if (currentTypingTarget === asteroids[i]) {
                     currentTypingTarget = null;
                     typedBuffer = '';
@@ -847,16 +851,13 @@ function gameLoop() {
                     endGame();
                     return;
                 }
-                // Spawn a replacement asteroid so the game continues
                 spawnAsteroid();
             }
         }
     }
 
-    // Draw targeting laser
     drawTargetingLaser();
 
-    // Draw asteroids
     for (const asteroid of asteroids) {
         asteroid.draw();
     }
@@ -882,7 +883,6 @@ function gameLoop() {
 
     ctx.shadowBlur = 0;
 
-    // HUD: HP bar (top-right)
     drawHPBar();
 
     if (gameRunning) {
@@ -919,7 +919,6 @@ function startGame() {
     aiPanel.style.display = 'block';
     typingInput.style.display = 'flex';
 
-    // Ensure no interactive element retains focus during gameplay
     if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
     }
@@ -951,7 +950,6 @@ function startGame() {
 function endGame() {
     gameRunning = false;
     stopBGM();
-    // Stop any ongoing speech
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
     }
@@ -961,19 +959,15 @@ function endGame() {
     gameOverlay.querySelector('h1').textContent = 'Game Over!';
     gameOverlay.querySelector('p').textContent = 'Final Score: ' + score;
 
-    // Save score to leaderboard via tRPC
     saveScoreToLeaderboard(score, wordsDestroyedCount, selectedLanguage);
 }
 
-// Save score to the server leaderboard
 async function saveScoreToLeaderboard(finalScore, wordsDestroyed, language) {
-    if (finalScore <= 0) return; // Don't save zero scores
+    if (finalScore <= 0) return;
     try {
-        // Prompt for player name
         const playerName = window.prompt('Enter your name for the leaderboard:', 'Player') || 'Anonymous';
         const trimmedName = playerName.trim().slice(0, 64) || 'Anonymous';
 
-        // tRPC HTTP mutation: POST /api/trpc/scores.save with superjson body
         const response = await fetch('/api/trpc/scores.save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1006,8 +1000,10 @@ function pauseGame() {
     const pauseButton = document.getElementById('pauseButton');
     if (gamePaused) {
         pauseButton.textContent = '▶ Resume';
+        if (bgmAudio) bgmAudio.pause();
     } else {
         pauseButton.textContent = '⏸ Pause';
+        if (bgmEnabled && bgmAudio) bgmAudio.play().catch(() => {});
         gameLoop();
     }
 }
@@ -1067,6 +1063,7 @@ function initializeGame() {
 
     initStars();
     initializeAsteroidClass();
+    initBGM(); // Pre-load Jupiter audio
 
     if (typeof ieltsWords !== 'undefined' && ieltsWords.length > 0) {
         gameWords = ieltsWords.map((word) => String(word));
@@ -1118,10 +1115,14 @@ function initializeGame() {
         bgmToggle.addEventListener('click', () => {
             bgmEnabled = !bgmEnabled;
             bgmToggle.textContent = bgmEnabled ? '🎵 BGM: ON' : '🎵 BGM: OFF';
+            if (bgmEnabled && gameRunning) {
+                startBGM();
+            } else {
+                if (bgmAudio) bgmAudio.pause();
+            }
         });
     }
 
-    // Draw idle starfield while on menu
     function idleLoop() {
         if (gameRunning) return;
         ctx.fillStyle = '#050a14';
@@ -1136,7 +1137,6 @@ function initializeGame() {
     console.log('[script.js] Game initialized successfully');
 }
 
-// Initialize when DOM is ready
 console.log('[script.js] Script loaded, document.readyState:', document.readyState);
 
 function initGameWhenReady() {
@@ -1169,7 +1169,6 @@ if (document.readyState === 'loading') {
     setTimeout(initGameWhenReady, 1000);
 }
 
-// Help function
 function getHelpTip() {
     const aiMessage = document.getElementById('aiMessage');
     aiMessage.textContent = 'Getting advice...';

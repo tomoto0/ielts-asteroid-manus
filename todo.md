@@ -49,3 +49,11 @@
 - [x] Game over only when HP reaches 0
 - [x] Update tests if needed, run pnpm test (10 tests pass)
 - [x] Save checkpoint
+
+## Phase 9: Typing-based Targeting & Jupiter BGM
+- [x] Fix targeting: select asteroid whose word starts with the typed characters (not auto-priority)
+- [x] When user deletes all typed chars, clear target so re-typing picks a new matching asteroid
+- [x] Download public-domain Jupiter (Holst) MP3 and upload to CDN (/manus-storage/jupiter_2ce0daed.mp3)
+- [x] Replace Web Audio oscillator BGM with HTML5 Audio playing Jupiter MP3 (loop)
+- [x] BGM toggle still works (play/pause the audio element)
+- [x] Run pnpm test (10 pass), save checkpoint
