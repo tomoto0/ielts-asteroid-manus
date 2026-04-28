@@ -38,6 +38,41 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
 
+  // ── Word Translation Proxy ──
+  // Returns a single translated word/phrase for TTS playback after asteroid destruction
+  app.post("/api/translate", async (req, res) => {
+    try {
+      const { word, targetLang } = req.body as { word?: string; targetLang?: string };
+      if (!word || typeof word !== "string") {
+        res.status(400).json({ error: "word is required" });
+        return;
+      }
+      const lang = targetLang || "ja";
+      const langNames: Record<string, string> = {
+        ja: "Japanese", es: "Spanish", zh: "Chinese (Simplified)",
+        fr: "French", it: "Italian", ko: "Korean", ar: "Arabic",
+        hi: "Hindi", ru: "Russian", id: "Indonesian", pt: "Portuguese",
+      };
+      const langName = langNames[lang] || lang;
+      const result = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: `You are a dictionary. Translate the given English word into ${langName}. Reply with ONLY the translated word or short phrase. No explanation, no punctuation, no extra text.`,
+          },
+          { role: "user", content: word },
+        ],
+        maxTokens: 32,
+      });
+      const translation =
+        (result.choices?.[0]?.message?.content as string)?.trim() ?? word;
+      res.json({ translation });
+    } catch (err) {
+      console.error("[TranslateProxy] Error:", err);
+      res.json({ translation: req.body?.word ?? "" });
+    }
+  });
+
   // ── Gemini AI Tip Proxy ──
   // Keeps the API key strictly server-side; client calls /api/gemini-tip
   app.post("/api/gemini-tip", async (req, res) => {

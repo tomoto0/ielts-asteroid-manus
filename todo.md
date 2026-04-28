@@ -37,3 +37,15 @@
 - [x] Upload OGP image to CDN via manus-upload-file --webdev
 - [x] Update index.html with comprehensive SNS meta tags (OGP, Twitter Card, LINE, Facebook, ja_JP locale)
 - [x] Create English README.md at project root
+
+## Phase 8: TTS & Survival Gauge
+- [x] Add speakWord(word, lang) using Web Speech API to read English word aloud when asteroid is targeted
+- [x] Add speakTranslation(translatedText, lang) to read the translation in selected language after destruction
+- [x] Hook TTS into completeCurrentTypingTarget() to speak translation after word is destroyed
+- [x] Hook TTS into syncTypingState() to speak English word when a new target is acquired
+- [x] Redesign game-over: replace instant-death with a survival gauge (HP bar)
+- [x] HP bar: starts at 100%, decreases when asteroid passes bottom (-25%), recovers +15% per asteroid destroyed
+- [x] Draw HP bar on canvas HUD (top-right, red/green gradient)
+- [x] Game over only when HP reaches 0
+- [x] Update tests if needed, run pnpm test (10 tests pass)
+- [x] Save checkpoint

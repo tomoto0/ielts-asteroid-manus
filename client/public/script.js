@@ -8,6 +8,8 @@
 //   • Nebula background gradient
 //   • Targeting laser beam
 //   • Screen-edge danger flash
+//   • TTS: English word readout + translated word after destruction
+//   • Survival HP gauge: recovers on asteroid destroy, game over at 0
 // ============================================================
 
 let gameRunning = false;
@@ -50,6 +52,15 @@ let gameWords = [];
 
 // Track words destroyed in the current game session
 let wordsDestroyedCount = 0;
+
+// ── Survival HP Gauge ─────────────────────────────────────────
+// HP starts at 100. Each missed asteroid costs HP_DAMAGE.
+// Each destroyed asteroid recovers HP_RECOVER (capped at HP_MAX).
+// Game over when HP reaches 0.
+const HP_MAX = 100;
+const HP_DAMAGE = 25;   // lost per missed asteroid
+const HP_RECOVER = 15;  // gained per destroyed asteroid
+let playerHP = HP_MAX;
 
 // Asteroid class - will be defined after canvas is initialized
 let Asteroid = null;
@@ -98,7 +109,6 @@ function drawStars() {
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
         if (s.layer === 2) {
-            // Bright stars get a tiny glow
             ctx.fillStyle = `rgba(200,230,255,${a})`;
             ctx.shadowColor = 'rgba(150,210,255,0.8)';
             ctx.shadowBlur = 6;
@@ -114,7 +124,6 @@ function drawStars() {
 // Nebula background (drawn once per frame, cheap gradient)
 function drawNebula() {
     const t = Date.now() * 0.0002;
-    // Slow-drifting nebula blobs
     const blobs = [
         { x: canvas.width * 0.2,  y: canvas.height * 0.3, r: canvas.width * 0.35, c: `rgba(30,0,80,0.18)` },
         { x: canvas.width * 0.75, y: canvas.height * 0.6, r: canvas.width * 0.28, c: `rgba(0,40,80,0.15)` },
@@ -150,7 +159,6 @@ function spawnExplosion(x, y, color) {
             type: Math.random() < 0.3 ? 'spark' : 'dot',
         });
     }
-    // Add a few larger debris chunks
     for (let i = 0; i < 6; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 0.8 + Math.random() * 2.5;
@@ -172,7 +180,7 @@ function updateParticles() {
         const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.06; // gravity
+        p.vy += 0.06;
         p.vx *= 0.98;
         p.alpha -= p.decay;
         if (p.alpha <= 0) particles.splice(i, 1);
@@ -253,12 +261,59 @@ function drawDangerFlash() {
     if (dangerFlash <= 0) return;
     ctx.fillStyle = `rgba(255,30,30,${dangerFlash * 0.18})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // Red border
     const bw = 6;
     ctx.strokeStyle = `rgba(255,30,30,${dangerFlash * 0.7})`;
     ctx.lineWidth = bw * 2;
     ctx.strokeRect(0, 0, canvas.width, canvas.height);
     dangerFlash = Math.max(0, dangerFlash - 0.04);
+}
+
+// ── HP Bar HUD ────────────────────────────────────────────────
+function drawHPBar() {
+    const barW = 180;
+    const barH = 14;
+    const barX = canvas.width - barW - 20;
+    const barY = 20;
+    const ratio = Math.max(0, playerHP / HP_MAX);
+
+    // Background track
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW, barH, 4);
+    ctx.fill();
+
+    // Fill colour: green → yellow → red based on HP
+    let fillColor;
+    if (ratio > 0.6) {
+        fillColor = '#00ff88';
+    } else if (ratio > 0.3) {
+        fillColor = '#ffe600';
+    } else {
+        fillColor = '#ff3366';
+    }
+
+    if (ratio > 0) {
+        ctx.fillStyle = fillColor;
+        ctx.shadowColor = fillColor;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW * ratio, barH, 4);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // Border
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW, barH, 4);
+    ctx.stroke();
+
+    // Label
+    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(200,240,255,0.7)';
+    ctx.fillText('HP  ' + Math.ceil(playerHP) + '%', barX - 6, barY + barH - 1);
 }
 
 function getTypingDisplay() {
@@ -304,6 +359,9 @@ function syncTypingUi() {
     }
 }
 
+// Track the last word spoken so we don't repeat on every syncTypingState call
+let lastSpokenWord = '';
+
 function syncTypingState() {
     if (currentTypingTarget && !asteroids.includes(currentTypingTarget)) {
         currentTypingTarget = null;
@@ -312,6 +370,11 @@ function syncTypingState() {
 
     if (!currentTypingTarget && gameRunning && asteroids.length > 0) {
         currentTypingTarget = pickPriorityTarget();
+        // Speak the new English target word aloud
+        if (currentTypingTarget && currentTypingTarget.word !== lastSpokenWord) {
+            lastSpokenWord = currentTypingTarget.word;
+            speakEnglish(currentTypingTarget.word);
+        }
     }
 
     for (const asteroid of asteroids) {
@@ -327,6 +390,7 @@ function syncTypingState() {
 function clearTypingState() {
     typedBuffer = '';
     currentTypingTarget = null;
+    lastSpokenWord = '';
     syncTypingState();
 }
 
@@ -336,7 +400,7 @@ function resetTypedBuffer() {
 }
 
 function getTypedCharacter(event) {
-    if (typeof event.key === 'string' && /^[a-z]$/i.test(event.key)) {
+    if (event.key && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
         return event.key.toLowerCase();
     }
 
@@ -383,14 +447,21 @@ function completeCurrentTypingTarget() {
     wordsDestroyedCount++;
     playSound(1200, 0.2);
 
+    // Recover HP on successful destroy (capped at HP_MAX)
+    playerHP = Math.min(HP_MAX, playerHP + HP_RECOVER);
+
     const ex = completedTarget.x + completedTarget.size / 2;
     const ey = completedTarget.y + completedTarget.size / 2;
     spawnExplosion(ex, ey, completedTarget.colorScheme.glow);
     spawnScorePopup(ex, ey - completedTarget.size / 2, 10);
 
+    // Speak the translation of the destroyed word in the selected language
+    speakTranslation(completedTarget.word, selectedLanguage);
+
     asteroids = asteroids.filter((asteroid) => asteroid !== completedTarget);
     typedBuffer = '';
     currentTypingTarget = null;
+    lastSpokenWord = '';
     syncTypingState();
 
     if (gameRunning) {
@@ -477,6 +548,71 @@ function drawTargetingLaser() {
     ctx.setLineDash([]);
 }
 
+// ── TTS Functions ─────────────────────────────────────────────
+
+/**
+ * Speak an English word using the browser's Web Speech API.
+ * Called when a new asteroid becomes the typing target.
+ */
+function speakEnglish(word) {
+    if (!soundEnabled) return;
+    if (!('speechSynthesis' in window)) return;
+    try {
+        // Cancel any ongoing speech to avoid queue buildup
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.85;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.9;
+        window.speechSynthesis.speak(utterance);
+    } catch (e) {
+        console.warn('[TTS] speakEnglish error:', e);
+    }
+}
+
+/**
+ * Fetch the translation of a word from the server, then speak it
+ * in the selected language using the Web Speech API.
+ * Called after an asteroid is destroyed.
+ */
+async function speakTranslation(word, lang) {
+    if (!soundEnabled) return;
+    if (!('speechSynthesis' in window)) return;
+    if (lang === 'en') {
+        // No translation needed for English
+        return;
+    }
+    try {
+        const response = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word, targetLang: lang }),
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const translation = data.translation;
+        if (!translation) return;
+
+        const ttsLang = ttsLanguageCodes[lang] || 'ja-JP';
+        // Small delay so the English word finishes speaking first
+        setTimeout(() => {
+            try {
+                const utterance = new SpeechSynthesisUtterance(translation);
+                utterance.lang = ttsLang;
+                utterance.rate = 0.85;
+                utterance.pitch = 1.0;
+                utterance.volume = 0.9;
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.warn('[TTS] speakTranslation utterance error:', e);
+            }
+        }, 600);
+    } catch (e) {
+        console.warn('[TTS] speakTranslation fetch error:', e);
+    }
+}
+
 // ── Sound Effects ────────────────────────────────────────────
 
 function playSound(frequency, duration) {
@@ -552,11 +688,8 @@ function initializeAsteroidClass() {
             this.rotationSpeed = (Math.random() - 0.5) * 0.012;
             this.typedChars = 0;
             this.isTargeted = false;
-            // Pick a random neon color scheme
             this.colorScheme = ASTEROID_COLORS[Math.floor(Math.random() * ASTEROID_COLORS.length)];
-            // Generate irregular rocky silhouette points
             this.points = this._generatePoints();
-            // Pulse phase for glow animation
             this.pulsePhase = Math.random() * Math.PI * 2;
         }
 
@@ -610,21 +743,19 @@ function initializeAsteroidClass() {
             }
             ctx.closePath();
 
-            // Fill with subtle gradient
             const bodyGrad = ctx.createRadialGradient(-this.size * 0.15, -this.size * 0.15, 0, 0, 0, this.size / 2);
             bodyGrad.addColorStop(0, scheme.fill.replace('0.15', '0.35'));
             bodyGrad.addColorStop(1, scheme.fill.replace('0.15', '0.08'));
             ctx.fillStyle = bodyGrad;
             ctx.fill();
 
-            // Neon stroke
             ctx.strokeStyle = scheme.stroke;
             ctx.lineWidth = this.isTargeted ? 2.5 : 1.8;
             ctx.shadowColor = scheme.glow;
             ctx.shadowBlur = 14 * pulse;
             ctx.stroke();
 
-            // Inner surface detail lines (craters)
+            // Crater detail
             ctx.shadowBlur = 0;
             ctx.strokeStyle = scheme.stroke.replace(')', ',0.2)').replace('rgb', 'rgba');
             ctx.lineWidth = 0.8;
@@ -653,14 +784,12 @@ function initializeAsteroidClass() {
             const totalWidth = typedWidth + remainingWidth;
             const startX = cx - totalWidth / 2;
 
-            // Background pill for readability
             const padX = 10, padY = 6;
             ctx.fillStyle = 'rgba(5,10,25,0.7)';
             ctx.beginPath();
             ctx.roundRect(startX - padX, textY - fontSize - padY, totalWidth + padX * 2, fontSize + padY * 2, 4);
             ctx.fill();
 
-            // Typed chars in yellow
             if (this.typedChars > 0) {
                 ctx.fillStyle = '#ffe600';
                 ctx.shadowColor = '#ffe600';
@@ -668,7 +797,6 @@ function initializeAsteroidClass() {
                 ctx.fillText(typedPart, startX + typedWidth / 2, textY);
             }
 
-            // Remaining chars
             const remainColor = this.isTargeted ? scheme.stroke : '#e0f4ff';
             ctx.fillStyle = remainColor;
             ctx.shadowColor = this.isTargeted ? scheme.glow : 'rgba(200,240,255,0.5)';
@@ -706,9 +834,21 @@ function gameLoop() {
             asteroids[i].update();
             if (asteroids[i].isOffScreen()) {
                 triggerDangerFlash();
+                // Remove the missed asteroid and deduct HP
+                if (currentTypingTarget === asteroids[i]) {
+                    currentTypingTarget = null;
+                    typedBuffer = '';
+                    lastSpokenWord = '';
+                }
                 asteroids.splice(i, 1);
-                endGame();
-                return;
+                playerHP -= HP_DAMAGE;
+                if (playerHP <= 0) {
+                    playerHP = 0;
+                    endGame();
+                    return;
+                }
+                // Spawn a replacement asteroid so the game continues
+                spawnAsteroid();
             }
         }
     }
@@ -742,6 +882,9 @@ function gameLoop() {
 
     ctx.shadowBlur = 0;
 
+    // HUD: HP bar (top-right)
+    drawHPBar();
+
     if (gameRunning) {
         requestAnimationFrame(gameLoop);
     }
@@ -769,6 +912,8 @@ function startGame() {
     currentTypingTarget = null;
     typedBuffer = '';
     wordsDestroyedCount = 0;
+    playerHP = HP_MAX;
+    lastSpokenWord = '';
 
     gameOverlay.style.display = 'none';
     aiPanel.style.display = 'block';
@@ -806,6 +951,10 @@ function startGame() {
 function endGame() {
     gameRunning = false;
     stopBGM();
+    // Stop any ongoing speech
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
     clearTypingState();
     const gameOverlay = document.getElementById('gameOverlay');
     gameOverlay.style.display = 'flex';
@@ -839,7 +988,6 @@ async function saveScoreToLeaderboard(finalScore, wordsDestroyed, language) {
         });
         if (response.ok) {
             console.log('[Score] Saved to leaderboard');
-            // Trigger leaderboard refresh in React
             if (typeof window.__refreshLeaderboard === 'function') {
                 window.__refreshLeaderboard();
             }
@@ -868,6 +1016,9 @@ function returnToMenu() {
     gameRunning = false;
     gamePaused = false;
     stopBGM();
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
     asteroids = [];
     particles = [];
     scorePopups = [];
@@ -903,11 +1054,6 @@ function initializeGame() {
         return;
     }
 
-    // Set canvas size — always use window dimensions so canvas fills the screen.
-    // We deliberately do NOT use getBoundingClientRect() because the canvas may
-    // not have been laid out yet (rect.height = 0) which would cause instant game-over.
-    // We also ignore visualViewport resize (mobile keyboard pop-up) to prevent
-    // asteroids from going "off-screen" when the keyboard shrinks the viewport.
     function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -915,16 +1061,13 @@ function initializeGame() {
     }
     resizeCanvas();
 
-    // Only respond to true window resize events, not keyboard-triggered viewport changes
     window.addEventListener('resize', resizeCanvas);
 
     console.log('[script.js] Canvas initialized:', canvas.width, 'x', canvas.height);
 
-    // Initialize visual systems
     initStars();
     initializeAsteroidClass();
 
-    // Use IELTS words if available
     if (typeof ieltsWords !== 'undefined' && ieltsWords.length > 0) {
         gameWords = ieltsWords.map((word) => String(word));
         console.log('[script.js] Loaded', gameWords.length, 'IELTS words');
@@ -940,7 +1083,6 @@ function initializeGame() {
     const soundToggle = document.getElementById('soundToggle');
     const bgmToggle = document.getElementById('bgmToggle');
 
-    // Event listeners
     if (startButton) {
         startButton.addEventListener('click', startGame);
     }
@@ -951,8 +1093,6 @@ function initializeGame() {
         });
     }
 
-    // ── Global keyboard handler ──────────────────────────────────
-    // The typing HUD is display-only. Keyboard state lives entirely in script.js.
     bindKeyboardHandlers();
     syncTypingState();
 
@@ -968,6 +1108,9 @@ function initializeGame() {
         soundToggle.addEventListener('click', () => {
             soundEnabled = !soundEnabled;
             soundToggle.textContent = soundEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
+            if (!soundEnabled && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
         });
     }
 
