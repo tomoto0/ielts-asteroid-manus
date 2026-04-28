@@ -29,5 +29,5 @@
 
 ## Phase 6: Checkpoint & Deploy
 - [x] TypeScript: 0 errors
-- [ ] Save checkpoint
-- [ ] Deploy to Manus platform
+- [x] Save checkpoint
+- [x] Deploy to Manus platform (user clicks Publish button)

@@ -1,202 +1,449 @@
+/* ============================================================
+   IELTS Vocabulary Asteroid Game — Enhanced Visual Theme
+   Deep-space neon aesthetic with glassmorphism UI
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+/* ── CSS Custom Properties ── */
+:root {
+  --neon-green:   #00ff88;
+  --neon-cyan:    #00e5ff;
+  --neon-purple:  #bf00ff;
+  --neon-yellow:  #ffe600;
+  --neon-red:     #ff3366;
+  --neon-orange:  #ff8800;
+  --space-dark:   #050a14;
+  --space-mid:    #0a1628;
+  --glass-bg:     rgba(5, 15, 35, 0.75);
+  --glass-border: rgba(0, 229, 255, 0.25);
+  --text-primary: #e0f4ff;
+  --text-dim:     #7aadcc;
+  --font-game:    'Orbitron', 'Share Tech Mono', monospace;
+  --font-mono:    'Share Tech Mono', monospace;
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
-    margin: 0;
-    overflow: hidden;
-    background-color: #0b0f13;
-    color: #cde8ff;
-    font-family: monospace;
+  margin: 0;
+  overflow: hidden;
+  background-color: var(--space-dark);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  user-select: none;
 }
 
 canvas {
-    display: block;
+  display: block;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
 }
 
+/* ── Keyframe Animations ── */
+@keyframes pulse-glow {
+  0%, 100% { text-shadow: 0 0 8px currentColor, 0 0 20px currentColor; }
+  50%       { text-shadow: 0 0 16px currentColor, 0 0 40px currentColor, 0 0 60px currentColor; }
+}
+
+@keyframes border-glow {
+  0%, 100% { box-shadow: 0 0 8px var(--neon-cyan), inset 0 0 8px rgba(0,229,255,0.05); }
+  50%       { box-shadow: 0 0 20px var(--neon-cyan), 0 0 40px rgba(0,229,255,0.3), inset 0 0 16px rgba(0,229,255,0.1); }
+}
+
+@keyframes float-in {
+  from { opacity: 0; transform: translateY(-30px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes scanline {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes flicker {
+  0%, 95%, 100% { opacity: 1; }
+  96%            { opacity: 0.85; }
+  97%            { opacity: 1; }
+  98%            { opacity: 0.9; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes score-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.3); color: var(--neon-yellow); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ── Game Overlay (Start / Game Over screen) ── */
 #gameOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    z-index: 100;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(0,100,255,0.12) 0%, transparent 65%),
+    radial-gradient(ellipse at 20% 80%, rgba(191,0,255,0.08) 0%, transparent 50%),
+    rgba(5, 10, 20, 0.88);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+  animation: float-in 0.5s ease both;
+}
+
+/* Scanline effect overlay */
+#gameOverlay::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+  opacity: 0.4;
+  animation: scanline 4s linear infinite;
+  pointer-events: none;
 }
 
 #gameOverlay h1 {
-    font-size: 3em;
-    margin-bottom: 20px;
+  font-family: var(--font-game);
+  font-size: clamp(1.8rem, 5vw, 3.5rem);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-green) 50%, var(--neon-cyan) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite, flicker 8s ease infinite;
+  text-transform: uppercase;
 }
 
 #gameOverlay p {
-    font-size: 1.2em;
-    margin-bottom: 30px;
+  font-family: var(--font-mono);
+  font-size: clamp(0.9rem, 2vw, 1.2rem);
+  color: var(--text-dim);
+  margin-bottom: 32px;
+  letter-spacing: 0.08em;
 }
 
+/* ── Start Button ── */
 #startButton {
-    padding: 15px 30px;
-    font-size: 1.5em;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+  position: relative;
+  padding: 16px 48px;
+  font-family: var(--font-game);
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--space-dark);
+  background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.3s ease;
+  box-shadow: 0 0 20px rgba(0,255,136,0.5), 0 0 40px rgba(0,255,136,0.2);
+}
+
+#startButton::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.4s ease;
 }
 
 #startButton:hover {
-    background-color: #0056b3;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 0 30px rgba(0,255,136,0.7), 0 0 60px rgba(0,255,136,0.3);
 }
 
-#typingInput {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 101;
+#startButton:hover::before { left: 100%; }
+
+#startButton:active {
+  transform: translateY(0) scale(0.97);
 }
 
-#textInput {
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 2px solid #cde8ff;
-    color: #cde8ff;
-    padding: 10px;
-    font-size: 1.5em;
-    width: 300px;
-    text-align: center;
-    border-radius: 5px;
-    outline: none;
-}
-
-#currentTarget {
-    margin-top: 10px;
-    font-size: 1.2em;
-    color: #ffff00;
-}
-
-#aiPanel {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background-color: rgba(0, 0, 0, 0.7);
-    padding: 15px;
-    border-radius: 8px;
-    max-width: 300px;
-    color: #00ff00;
-    font-size: 0.9em;
-    z-index: 102;
-}
-
-#aiMessage {
-    margin-bottom: 10px;
-}
-
-#helpButton {
-    background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-}
-
+/* ── Language Controls ── */
 .controls {
-    margin-top: 20px;
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .controls label {
-    margin-right: 10px;
-    font-size: 1.1em;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .controls select {
-    padding: 8px;
-    font-size: 1em;
-    border-radius: 5px;
-    border: 1px solid #cde8ff;
-    background-color: #0b0f13;
-    color: #cde8ff;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--neon-cyan);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  backdrop-filter: blur(8px);
 }
 
+.controls select:focus,
+.controls select:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0,229,255,0.3);
+}
 
+/* ── Typing Input ── */
+#typingInput {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 101;
+  animation: slide-up 0.4s ease both;
+}
+
+#textInput {
+  background: rgba(0, 20, 50, 0.7);
+  border: 2px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  padding: 12px 20px;
+  font-family: var(--font-mono);
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
+  width: clamp(240px, 30vw, 360px);
+  text-align: center;
+  border-radius: 4px;
+  outline: none;
+  backdrop-filter: blur(8px);
+  transition: box-shadow 0.2s, border-color 0.2s;
+  box-shadow: 0 0 12px rgba(0,229,255,0.3), inset 0 0 12px rgba(0,229,255,0.05);
+  caret-color: var(--neon-green);
+  letter-spacing: 0.1em;
+}
+
+#textInput:focus {
+  border-color: var(--neon-green);
+  box-shadow: 0 0 20px rgba(0,255,136,0.5), inset 0 0 16px rgba(0,255,136,0.08);
+}
+
+#currentTarget {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--neon-yellow);
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 8px var(--neon-yellow);
+}
+
+/* ── AI Panel ── */
+#aiPanel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  padding: 16px 18px;
+  border-radius: 8px;
+  max-width: 280px;
+  color: var(--neon-green);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  z-index: 102;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 0 16px rgba(0,255,136,0.15), inset 0 0 16px rgba(0,255,136,0.03);
+  animation: border-glow 3s ease-in-out infinite;
+  line-height: 1.5;
+}
+
+#aiPanel::before {
+  content: '◈ AI TUTOR';
+  display: block;
+  font-family: var(--font-game);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  color: var(--neon-cyan);
+  margin-bottom: 8px;
+  opacity: 0.7;
+}
+
+#aiMessage {
+  margin-bottom: 10px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+#helpButton {
+  background: linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,229,255,0.1));
+  color: var(--neon-green);
+  border: 1px solid var(--neon-green);
+  padding: 7px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+#helpButton:hover {
+  background: rgba(0,255,136,0.25);
+  box-shadow: 0 0 12px rgba(0,255,136,0.4);
+  transform: translateY(-1px);
+}
 
 #aiPanel #controlsInfo {
-    font-size: 0.8em;
-    color: #cde8ff;
-    margin-top: 10px;
-    text-align: right;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 10px;
+  text-align: right;
+  opacity: 0.7;
 }
 
+/* ── Audio Controls ── */
 #audioControls {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    gap: 10px;
-    z-index: 102;
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 102;
 }
 
 #soundToggle, #bgmToggle {
-    background-color: #007bff;
-    color: white;
-    border: 2px solid #00ff00;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9em;
-    font-family: monospace;
-    transition: all 0.3s ease;
+  background: var(--glass-bg);
+  color: var(--neon-cyan);
+  border: 1px solid var(--glass-border);
+  padding: 9px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
 }
 
 #soundToggle:hover, #bgmToggle:hover {
-    background-color: #0056b3;
-    transform: scale(1.05);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 12px rgba(0,229,255,0.35);
+  transform: translateY(-1px);
 }
 
 #soundToggle.off, #bgmToggle.off {
-    background-color: #6c757d;
-    border-color: #ff6b6b;
+  color: #556677;
+  border-color: rgba(85,102,119,0.4);
 }
 
-#soundToggle.off:hover, #bgmToggle.off:hover {
-    background-color: #5a6268;
-}
-
+/* ── Game Controls (Pause / Menu) ── */
 #gameControls {
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 15px;
-    z-index: 103;
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 103;
 }
 
-#pauseButton, #menuButton {
-    background-color: #ff6b6b;
-    color: white;
-    border: 2px solid #ff4444;
-    padding: 12px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1em;
-    font-family: monospace;
-    font-weight: bold;
-    transition: all 0.3s ease;
+#pauseButton {
+  background: linear-gradient(135deg, rgba(255,136,0,0.2), rgba(255,51,102,0.15));
+  color: var(--neon-orange);
+  border: 1px solid var(--neon-orange);
+  padding: 10px 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-game);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
 }
 
-#pauseButton:hover, #menuButton:hover {
-    background-color: #ff5252;
-    transform: scale(1.05);
-    box-shadow: 0 0 10px rgba(255, 100, 100, 0.5);
+#pauseButton:hover {
+  background: rgba(255,136,0,0.3);
+  box-shadow: 0 0 14px rgba(255,136,0,0.5);
+  transform: translateY(-1px);
+}
+
+#menuButton {
+  background: linear-gradient(135deg, rgba(191,0,255,0.2), rgba(0,229,255,0.1));
+  color: var(--neon-purple);
+  border: 1px solid var(--neon-purple);
+  padding: 10px 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-game);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+#menuButton:hover {
+  background: rgba(191,0,255,0.3);
+  box-shadow: 0 0 14px rgba(191,0,255,0.5);
+  transform: translateY(-1px);
 }
 
 #pauseButton:active, #menuButton:active {
-    transform: scale(0.95);
+  transform: scale(0.96);
+}
+
+/* ── Leaderboard Button (inside overlay) ── */
+#leaderboardButton {
+  margin-top: 14px;
+  background: linear-gradient(135deg, rgba(255,230,0,0.12), rgba(255,136,0,0.08));
+  border: 1px solid rgba(255,230,0,0.5) !important;
+  color: var(--neon-yellow) !important;
+  padding: 10px 24px !important;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono) !important;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+#leaderboardButton:hover {
+  background: rgba(255,230,0,0.2) !important;
+  box-shadow: 0 0 16px rgba(255,230,0,0.4);
+  transform: translateY(-1px);
 }
